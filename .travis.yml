@@ -1,0 +1,25 @@
+language: rust
+sudo: false
+cache: cargo
+
+rust:
+  - 1.34.0
+
+script: 
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo doc --verbose
+
+before_deploy:
+  - cargo doc --verbose
+  - echo '<meta http-equiv="refresh" content="0; url=linkcheck/index.html" /> ' > target/doc/index.html
+  - cp -r target/doc public
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN 
+  keep_history: true
+  local_dir: public
+  on:
+    branch: master
