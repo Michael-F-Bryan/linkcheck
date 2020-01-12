@@ -4,6 +4,8 @@ cache: cargo
 
 rust:
   - 1.34.0
+  - stable
+  - nightly
 
 script:
   - cargo build --verbose
