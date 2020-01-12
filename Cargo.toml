@@ -5,3 +5,7 @@ authors = ["Michael Bryan <michaelfbryan@gmail.com>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
 
+[dependencies]
+codespan = "0.7.0"
+rayon = "1.3.0"
+
