@@ -97,7 +97,7 @@ fn verify_one(
     cache: &dyn Cache,
 ) -> ValidationResult {
     if cache.is_valid(link.href()).unwrap_or(false) {
-        // cache hit
+        log::debug!("Cache hit for \"{}\"", link.href());
         return ValidationResult::Valid;
     }
 
@@ -108,5 +108,6 @@ fn verify_one(
         }
     }
 
+    log::debug!("No verifiers were able to handle \"{}\"", link.href());
     ValidationResult::Unsupported
 }

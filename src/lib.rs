@@ -1,10 +1,12 @@
 //! A library for extracting and verifying links.
 
 mod cache;
-pub mod extract;
-pub mod verify;
+mod extract;
+mod verify;
 
 pub use cache::Cache;
+pub use extract::*;
+pub use verify::*;
 
 use codespan::{FileId, Span};
 

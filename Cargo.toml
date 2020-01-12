@@ -8,4 +8,5 @@ edition = "2018"
 [dependencies]
 codespan = "0.7.0"
 rayon = "1.3.0"
+log = "0.4.8"
 
