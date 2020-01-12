@@ -1,6 +1,6 @@
 language: rust
-sudo: false
 cache: cargo
+os: linux
 
 rust:
   - 1.34.0
@@ -20,7 +20,7 @@ before_deploy:
 deploy:
   - provider: pages
     edge: true
-    github_token: "$GITHUB_TOKEN"
+    token: "$GITHUB_TOKEN"
     local_dir: public
     on:
       branch: master
