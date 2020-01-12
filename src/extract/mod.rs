@@ -5,6 +5,7 @@ use codespan::Span;
 
 /// Something that can be used to extract links from some source text.
 pub trait LinkExtractor {
+    /// Find all the links in the source text.
     fn extract(&self, src: &str) -> Vec<(Link, Span)>;
 }
 

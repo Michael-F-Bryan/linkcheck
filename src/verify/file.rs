@@ -1,6 +1,6 @@
 use crate::{
     verify::{ValidationResult, Verifier},
-    Cache, Link,
+    Link,
 };
 
 /// A [`Verifier`] for links on the local filesystem.
@@ -8,7 +8,5 @@ use crate::{
 pub struct File {}
 
 impl Verifier for File {
-    fn verify(&self, _link: &Link, _cache: &dyn Cache) -> ValidationResult {
-        unimplemented!()
-    }
+    fn verify(&self, _link: &Link) -> ValidationResult { unimplemented!() }
 }

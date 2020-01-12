@@ -1,5 +1,8 @@
 //! A library for extracting and verifying links.
 
+#![forbid(unsafe_code)]
+#![warn(missing_docs, missing_debug_implementations)]
+
 mod cache;
 mod extract;
 mod verify;
@@ -13,10 +16,13 @@ use codespan::{FileId, Span};
 /// The location for something in its source text.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Location {
+    /// The file for the item's source code.
     pub file: FileId,
+    /// The byte-span within the srouce text.
     pub span: Span,
 }
 
+/// A link.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Link {
     text: String,
@@ -24,6 +30,7 @@ pub struct Link {
 }
 
 impl Link {
+    /// Create a new [`Link`].
     pub fn new(text: String, href: String) -> Self { Link { text, href } }
 
     /// The link text.

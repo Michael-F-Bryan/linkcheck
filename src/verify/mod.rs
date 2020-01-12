@@ -16,21 +16,20 @@ pub trait Verifier: Sync {
     /// # Note to Implementors
     ///
     /// If a particular type of [`Link`] isn't supported, you should quickly
-    /// detect this and return [`ValidationResult ::Unsupported`] so another
+    /// detect this and return [`ValidationResult::Unsupported`] so another
     /// [`Verifier`] can be tried.
-    fn verify(&self, link: &Link, cache: &dyn Cache) -> ValidationResult;
+    fn verify(&self, link: &Link) -> ValidationResult;
 }
 
 impl<F> Verifier for F
 where
-    F: Fn(&Link, &dyn Cache) -> ValidationResult,
+    F: Fn(&Link) -> ValidationResult,
     F: Sync,
 {
-    fn verify(&self, link: &Link, cache: &dyn Cache) -> ValidationResult {
-        self(link, cache)
-    }
+    fn verify(&self, link: &Link) -> ValidationResult { self(link) }
 }
 
+/// The result of checking if a [`Link`] is valid.
 #[derive(Debug)]
 pub enum ValidationResult {
     /// This [`Link`] is valid.
@@ -41,17 +40,21 @@ pub enum ValidationResult {
     Ignored,
 }
 
+/// A table containing all the valid, invalid, and ignored links.
 #[derive(Debug, Default)]
 pub struct Outcome {}
 
 impl Outcome {
-    pub fn merge(left: Outcome, right: Outcome) -> Outcome { unimplemented!() }
+    /// Merge two [`Outcome`]s.
+    pub fn merge(_left: Outcome, _right: Outcome) -> Outcome {
+        unimplemented!()
+    }
 
     fn with_result(
         self,
-        location: Location,
-        link: Link,
-        result: ValidationResult,
+        _location: Location,
+        _link: Link,
+        _result: ValidationResult,
     ) -> Outcome {
         unimplemented!()
     }
@@ -71,6 +74,7 @@ impl FromParallelIterator<(Location, Link, ValidationResult)> for Outcome {
     }
 }
 
+/// Attempt to verify a set of [`Link`]s in parallel.
 pub fn verify<L, C>(
     links: L,
     verifiers: &[Box<dyn Verifier>],
@@ -102,7 +106,7 @@ fn verify_one(
     }
 
     for verifier in verifiers {
-        match verifier.verify(link, cache) {
+        match verifier.verify(link) {
             ValidationResult::Unsupported => continue,
             other => return other,
         }
