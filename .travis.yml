@@ -3,7 +3,8 @@ cache: cargo
 os: linux
 
 rust:
-  - 1.34.0
+  // see https://github.com/rust-lang/rust/issues/67423
+  - 1.38.0
   - stable
   - nightly
 
