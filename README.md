@@ -1,6 +1,9 @@
-# linkcheck
+# Linkcheck
 
 [![Continuous integration](https://github.com/Michael-F-Bryan/linkcheck/workflows/Continuous%20integration/badge.svg?branch=master)](https://github.com/Michael-F-Bryan/linkcheck/actions)
+[![Docs.rs Badge](https://docs.rs/linkcheck/badge.svg)](https://docs.rs/linkcheck)
+[![Crates.io](https://img.shields.io/crates/v/linkcheck)](https://crates.io/crates/linkcheck)
+![Crates.io](https://img.shields.io/crates/l/linkcheck)
 
 ([API Docs])
 

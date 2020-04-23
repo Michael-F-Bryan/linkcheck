@@ -4,4 +4,11 @@ version = "0.1.0"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
+repository = "https://github.com/Michael-F-Bryan/linkcheck"
+readme = "README.md"
+description = "A library for extracting and validating links."
+keywords = ["linkchecker", "linkcheck", "links", "check"]
+categories = ["text-processing"]
 
+[badges]
+maintenance = { status = "actively-developed" }
