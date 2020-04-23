@@ -1,9 +1,13 @@
 //! A *scanner* is just a function that which can extract links from a body of
 //! text.
 
+#[cfg(feature = "markdown")]
+mod markdown;
 #[cfg(feature = "plaintext")]
 mod plaintext;
 
+#[cfg(feature = "markdown")]
+pub use markdown::{markdown, markdown_with_broken_link_callback};
 #[cfg(feature = "plaintext")]
 pub use plaintext::plaintext;
 
@@ -18,18 +22,14 @@ pub struct Link {
 }
 
 /// Use a *scanner* to extract all the links from some text.
-pub fn links<'a, S, I>(
-    src: &'a str,
+pub fn links<S, I>(
+    src: &str,
     file: FileId,
     scanner: S,
-) -> impl Iterator<Item = Link> + 'a
+) -> impl Iterator<Item = Link>
 where
-    S: FnOnce(&'a str) -> I,
-    I: Iterator<Item = (&'a str, Span)> + 'a,
+    S: FnOnce(&str) -> I,
+    I: Iterator<Item = (String, Span)>,
 {
-    scanner(src).map(move |(href, span)| Link {
-        href: href.to_string(),
-        span,
-        file,
-    })
+    scanner(src).map(move |(href, span)| Link { href, span, file })
 }
