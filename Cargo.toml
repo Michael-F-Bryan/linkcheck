@@ -12,3 +12,6 @@ categories = ["text-processing"]
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[dependencies]
+codespan = "0.9.2"
