@@ -1,6 +1,12 @@
 //! A *scanner* is just a function that which can extract links from a body of
 //! text.
 
+#[cfg(feature = "plaintext")]
+mod plaintext;
+
+#[cfg(feature = "plaintext")]
+pub use plaintext::plaintext;
+
 use codespan::{FileId, Span};
 
 #[derive(Debug, Clone, PartialEq)]
