@@ -1,5 +1,6 @@
 use crate::validation::Reason;
 use std::{
+    ffi::{OsStr, OsString},
     io,
     path::{Path, PathBuf},
 };
@@ -8,10 +9,32 @@ use std::{
 ///
 /// # Note
 ///
-/// If the link is absolute, the link will be resolved relative to
-/// [`Options::root_directory()`]. Not providing a root directory will always
-/// trigger a [`Reason::TraversesParentDirectories`] error to prevent possible
-/// directory traversal attacks.
+/// The behaviour of this function may vary greatly depending on the
+/// [`Options`] passed in.
+///
+/// ## Root Directory
+///
+/// Setting a value for [`Options::root_directory()`] acts as a sort of sanity
+/// check to prevent links from going outside of a directory tree. It can be
+/// useful for preventing [directory traversal attacks][dta] and detecting
+/// brittle code (links that go outside of a specific directory may not exist on
+/// other machines).
+///
+/// When the link is absolute, it will be resolved relative to
+/// [`Options::root_directory()`]. If now root directory was provided, it will
+/// always trigger a [`Reason::TraversesParentDirectories`] error to
+/// prevent possible directory traversal attacks.
+///
+/// ## Default File
+///
+/// Because a link can only point to a file, when a link specifies a directory
+/// we'll automatically append [`Options::default_file()`] to the end.
+///
+/// This will typically be something like `"index.html"`, meaning a link to
+/// `./whatever/` will be resolved to `./whatever/index.html`, which is the
+/// default behaviour for web browsers.
+///
+/// [dta]: https://en.wikipedia.org/wiki/Directory_traversal_attack
 pub fn resolve_link(
     current_directory: &Path,
     link: &Path,
@@ -19,37 +42,32 @@ pub fn resolve_link(
 ) -> Result<PathBuf, Reason> {
     let joined = options.join(current_directory, link)?;
 
-    let canonical = match joined.canonicalize() {
-        Ok(c) => c,
-        Err(e) => return Err(Reason::Io(e)),
-    };
-
+    let canonical = options.canonicalize(&joined)?;
     options.sanity_check(&canonical)?;
 
-    Ok(canonical)
+    if canonical.exists() {
+        Ok(canonical)
+    } else {
+        Err(Reason::Io(std::io::ErrorKind::NotFound.into()))
+    }
 }
 
 /// Options to be used with [`resolve_link()`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     root_directory: Option<PathBuf>,
+    default_file: OsString,
 }
 
 impl Options {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Options {
             root_directory: None,
+            default_file: OsString::from("index.html"),
         }
     }
 
     /// Get the root directory, if one was provided.
-    ///
-    /// This acts as a sort of sanity check to prevent links from going outside
-    /// of a directory tree. It can be useful for preventing [directory
-    /// traversal attacks][dta] and detecting brittle code (links that go
-    /// outside of a specific directory may not exist on other machines).
-    ///
-    /// [dta]: https://en.wikipedia.org/wiki/Directory_traversal_attack
     pub fn root_directory(&self) -> Option<&Path> {
         self.root_directory.as_ref().map(|p| &**p)
     }
@@ -64,6 +82,17 @@ impl Options {
             root_directory: Some(std::fs::canonicalize(root_directory)?),
             ..self
         })
+    }
+
+    /// The default file name to use when a directory is linked to.
+    pub fn default_file(&self) -> &OsStr { &self.default_file }
+
+    /// Set the [`Options::default_file()`].
+    pub fn set_default_file<O: Into<OsString>>(self, default_file: O) -> Self {
+        Options {
+            default_file: default_file.into(),
+            ..self
+        }
     }
 
     fn join(
@@ -96,6 +125,16 @@ impl Options {
         }
     }
 
+    fn canonicalize(&self, path: &Path) -> Result<PathBuf, Reason> {
+        let mut canonical = path.canonicalize()?;
+
+        if canonical.is_dir() {
+            canonical.push(&self.default_file);
+        }
+
+        Ok(canonical)
+    }
+
     fn sanity_check(&self, path: &Path) -> Result<(), Reason> {
         if let Some(root) = self.root_directory() {
             if !path.starts_with(root) {
@@ -121,6 +160,15 @@ mod tests {
             .join("validation")
     }
 
+    fn touch<S: AsRef<Path>>(filename: S, directories: &[&Path]) {
+        for dir in directories {
+            std::fs::create_dir_all(dir).unwrap();
+
+            let item = dir.join(filename.as_ref());
+            let _f = std::fs::File::create(&item).unwrap();
+        }
+    }
+
     #[test]
     fn resolve_mod_relative_to_validation_dir() {
         let current_dir = validation_dir();
@@ -139,19 +187,24 @@ mod tests {
         let foo = temp.path().join("foo");
         let bar = foo.join("bar");
         let baz = bar.join("baz");
-        std::fs::create_dir_all(&baz).unwrap();
-
-        let current_dir = baz.as_path();
         let options =
             Options::default().with_root_directory(temp.path()).unwrap();
+        touch(&options.default_file, &[temp.path(), &foo, &bar, &baz]);
+        let current_dir = baz.as_path();
         let resolve = |link: &str| -> Result<PathBuf, Reason> {
             resolve_link(current_dir, Path::new(link), &options)
         };
 
-        assert_eq!(resolve(".").unwrap(), current_dir);
-        assert_eq!(resolve("..").unwrap(), bar);
-        assert_eq!(resolve("../..").unwrap(), foo);
-        assert_eq!(resolve("../../..").unwrap(), temp.path());
+        assert_eq!(
+            resolve(".").unwrap(),
+            current_dir.join(&options.default_file)
+        );
+        assert_eq!(resolve("..").unwrap(), bar.join(&options.default_file));
+        assert_eq!(resolve("../..").unwrap(), foo.join(&options.default_file));
+        assert_eq!(
+            resolve("../../..").unwrap(),
+            temp.path().join(&options.default_file)
+        );
         assert!(matches!(
             resolve("../../../..").unwrap_err(),
             Reason::TraversesParentDirectories
@@ -163,14 +216,13 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let foo = temp.path().join("foo");
         let bar = temp.path().join("bar");
-        std::fs::create_dir_all(&foo).unwrap();
-        std::fs::create_dir_all(&bar).unwrap();
         let options =
             Options::default().with_root_directory(temp.path()).unwrap();
+        touch(&options.default_file, &[temp.path(), &foo, &bar]);
         let link = Path::new("/bar");
 
         let got = resolve_link(&foo, link, &options).unwrap();
 
-        assert_eq!(got, bar);
+        assert_eq!(got, bar.join(&options.default_file));
     }
 }
