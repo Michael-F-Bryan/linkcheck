@@ -2,6 +2,10 @@
 
 pub extern crate codespan;
 
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 pub mod scanners;
 pub mod validation;
 

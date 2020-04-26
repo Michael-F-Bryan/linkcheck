@@ -44,3 +44,35 @@ where
         _ => None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_common_links_in_markdown() {
+        let src = r#"
+# Some Heading
+
+[this](https://example.com) is a link [to nowhere][nowhere]. But
+[this](../README.md) points somewhere on disk.
+
+![Look, an image!](https://imgur.com/gallery/f28OkrB)
+
+[nowhere]: https://dev.null/
+        "#;
+        let should_be = vec![
+            (String::from("https://example.com"), Span::new(17, 44)),
+            (String::from("https://dev.null/"), Span::new(55, 56)),
+            (String::from("../README.md"), Span::new(82, 102)),
+            (
+                String::from("https://imgur.com/gallery/f28OkrB"),
+                Span::new(130, 183),
+            ),
+        ];
+
+        let got: Vec<_> = markdown(src).collect();
+
+        assert_eq!(got, should_be);
+    }
+}
