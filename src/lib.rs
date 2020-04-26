@@ -20,7 +20,7 @@ pub struct Link {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Category {
     /// A local file.
-    FileSystem(PathBuf),
+    FileSystem { path: PathBuf, query: String },
     /// A URL for something on the web.
     Url(Url),
 }
