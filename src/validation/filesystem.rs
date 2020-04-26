@@ -14,15 +14,16 @@ use std::{
 ///
 /// ## Root Directory
 ///
-/// Setting a value for [`Options::root_directory()`] acts as a sort of sanity
-/// check to prevent links from going outside of a directory tree. It can be
-/// useful for preventing [directory traversal attacks][dta] and detecting
+/// Setting a value for [`Options::root_directory()`] and
+/// [`Options::links_may_traverse_the_root_directory()`] act as a sort of sanity
+/// check to prevent links from going outside of a directory tree. They can also
+/// be useful in preventing [directory traversal attacks][dta] and detecting
 /// brittle code (links that go outside of a specific directory may not exist on
 /// other machines).
 ///
 /// When the link is absolute, it will be resolved relative to
 /// [`Options::root_directory()`]. If now root directory was provided, it will
-/// always trigger a [`Reason::TraversesParentDirectories`] error to
+/// *always* trigger a [`Reason::TraversesParentDirectories`] error to
 /// prevent possible directory traversal attacks.
 ///
 /// ## Default File
@@ -54,13 +55,18 @@ pub fn resolve_link(
 pub struct Options {
     root_directory: Option<PathBuf>,
     default_file: OsString,
+    links_may_traverse_the_root_directory: bool,
 }
 
 impl Options {
+    /// The name used by [`Options::default_file()`].
+    pub const DEFAULT_FILE: &'static str = "index.html";
+
     pub fn new() -> Self {
         Options {
             root_directory: None,
-            default_file: OsString::from("index.html"),
+            default_file: OsString::from(Options::DEFAULT_FILE),
+            links_may_traverse_the_root_directory: false,
         }
     }
 
@@ -92,6 +98,20 @@ impl Options {
         }
     }
 
+    pub fn links_may_traverse_the_root_directory(&self) -> bool {
+        self.links_may_traverse_the_root_directory
+    }
+
+    pub fn set_links_may_traverse_the_root_directory(
+        self,
+        value: bool,
+    ) -> Self {
+        Options {
+            links_may_traverse_the_root_directory: value,
+            ..self
+        }
+    }
+
     fn join(
         &self,
         current_dir: &Path,
@@ -103,6 +123,7 @@ impl Options {
             match self.root_directory() {
                 Some(root) => {
                     let mut buffer = root.to_path_buf();
+                    // append everything except the root element
                     buffer.extend(second.iter().skip(1));
                     Ok(buffer)
                 },
@@ -137,7 +158,9 @@ impl Options {
 
     fn sanity_check(&self, path: &Path) -> Result<(), Reason> {
         if let Some(root) = self.root_directory() {
-            if !path.starts_with(root) {
+            if !(self.links_may_traverse_the_root_directory
+                || path.starts_with(root))
+            {
                 return Err(Reason::TraversesParentDirectories);
             }
         }
@@ -195,6 +218,7 @@ mod tests {
             resolve_link(current_dir, Path::new(link), &options)
         };
 
+        // checking up to the root directory is okay
         assert_eq!(
             resolve(".").unwrap(),
             current_dir.join(&options.default_file)
@@ -205,7 +229,7 @@ mod tests {
             resolve("../../..").unwrap(),
             temp.path().join(&options.default_file)
         );
-        // try a typical directory traversal attack
+        // but a directory traversal attack isn't
         assert!(matches!(
             resolve(
                 "../../../../../../../../../../../../../../../../../etc/passwd"
@@ -239,9 +263,7 @@ mod tests {
 
         let err = resolve_link(temp.path(), link, &options).unwrap_err();
 
-        assert!(
-            matches!(err, Reason::Io(io) if io.kind() == std::io::ErrorKind::NotFound)
-        );
+        assert!(err.file_not_found());
     }
 
     #[test]
@@ -253,5 +275,22 @@ mod tests {
         let err = resolve_link(temp.path(), link, &options).unwrap_err();
 
         assert!(matches!(err, Reason::TraversesParentDirectories));
+    }
+
+    #[test]
+    fn a_link_that_is_allowed_to_traverse_the_root_dir() {
+        let temp = tempfile::tempdir().unwrap();
+        let foo = temp.path().join("foo");
+        let bar = temp.path().join("bar");
+        touch(Options::DEFAULT_FILE, &[temp.path(), &foo, &bar]);
+        let options = Options::default()
+            .with_root_directory(&foo)
+            .unwrap()
+            .set_links_may_traverse_the_root_directory(true);
+        let link = Path::new("../bar/index.html");
+
+        let got = resolve_link(&foo, link, &options).unwrap();
+
+        assert_eq!(got, bar.join("index.html"));
     }
 }
