@@ -45,11 +45,8 @@ pub fn resolve_link(
     let canonical = options.canonicalize(&joined)?;
     options.sanity_check(&canonical)?;
 
-    if canonical.exists() {
-        Ok(canonical)
-    } else {
-        Err(Reason::Io(std::io::ErrorKind::NotFound.into()))
-    }
+    // Note: canonicalizing also made sure the file exists
+    Ok(canonical)
 }
 
 /// Options to be used with [`resolve_link()`].
@@ -130,6 +127,9 @@ impl Options {
 
         if canonical.is_dir() {
             canonical.push(&self.default_file);
+            // we need to canonicalize again because the default file may be a
+            // symlink, or not exist at all
+            canonical = canonical.canonicalize()?;
         }
 
         Ok(canonical)
@@ -205,8 +205,12 @@ mod tests {
             resolve("../../..").unwrap(),
             temp.path().join(&options.default_file)
         );
+        // try a typical directory traversal attack
         assert!(matches!(
-            resolve("../../../..").unwrap_err(),
+            resolve(
+                "../../../../../../../../../../../../../../../../../etc/passwd"
+            )
+            .unwrap_err(),
             Reason::TraversesParentDirectories
         ));
     }
@@ -224,5 +228,30 @@ mod tests {
         let got = resolve_link(&foo, link, &options).unwrap();
 
         assert_eq!(got, bar.join(&options.default_file));
+    }
+
+    #[test]
+    fn link_to_a_file_we_know_doesnt_exist() {
+        let temp = tempfile::tempdir().unwrap();
+        let options =
+            Options::default().with_root_directory(temp.path()).unwrap();
+        let link = Path::new("./bar");
+
+        let err = resolve_link(temp.path(), link, &options).unwrap_err();
+
+        assert!(
+            matches!(err, Reason::Io(io) if io.kind() == std::io::ErrorKind::NotFound)
+        );
+    }
+
+    #[test]
+    fn absolute_link_with_no_root_set_is_an_error() {
+        let temp = tempfile::tempdir().unwrap();
+        let options = Options::default();
+        let link = Path::new("/bar");
+
+        let err = resolve_link(temp.path(), link, &options).unwrap_err();
+
+        assert!(matches!(err, Reason::TraversesParentDirectories));
     }
 }
