@@ -34,7 +34,7 @@ mod tests {
 
     #[test]
     fn detect_urls_in_some_text() {
-        let src = "hello http://localhost/ world. this is file://some/text";
+        let src = "hello http://localhost/ world. this is file://some/text.";
         let should_be = vec![
             ("http://localhost/", Span::new(6, 23)),
             ("file://some/text", Span::new(39, 55)),
