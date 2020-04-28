@@ -11,8 +11,8 @@ jobs:
         rust:
           - nightly
           - stable
-          # MSRV - for the #[non_exhaustive] attribute
-          - 1.40.0
+          # MSRV - for std::matches!()
+          - 1.42.0
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
