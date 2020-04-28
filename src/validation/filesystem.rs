@@ -1,4 +1,4 @@
-use crate::validation::Reason;
+use crate::validation::{Context, Reason};
 use std::{
     ffi::{OsStr, OsString},
     io,
@@ -48,6 +48,33 @@ pub fn resolve_link(
 
     // Note: canonicalizing also made sure the file exists
     Ok(canonical)
+}
+
+/// Check whether a [`Path`] points to a valid file on disk.
+pub fn check_filesystem<C>(
+    current_directory: &Path,
+    path: &Path,
+    query: String,
+    ctx: &C,
+) -> Result<(), Reason>
+where
+    C: Context,
+{
+    log::debug!(
+        "Checking \"{}#{}\" in the context of \"{}\"",
+        path.display(),
+        query,
+        current_directory.display()
+    );
+
+    if !query.is_empty() {
+        unimplemented!(
+            "TODO: Use the query string to check if a section header exists"
+        );
+    }
+
+    resolve_link(current_directory, &path, ctx.filesystem_options())?;
+    Ok(())
 }
 
 /// Options to be used with [`resolve_link()`].

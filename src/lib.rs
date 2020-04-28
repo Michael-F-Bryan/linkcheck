@@ -9,9 +9,19 @@ extern crate pretty_assertions;
 pub mod scanners;
 pub mod validation;
 
+pub use validation::validate;
+
 use codespan::{FileId, Span};
 use reqwest::Url;
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Category {
+    /// A local file.
+    FileSystem { path: PathBuf, query: String },
+    /// A URL for something on the web.
+    Url(Url),
+}
 
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -21,10 +31,6 @@ pub struct Link {
     pub file: FileId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Category {
-    /// A local file.
-    FileSystem { path: PathBuf, query: String },
-    /// A URL for something on the web.
-    Url(Url),
+impl Link {
+    pub fn category(&self) -> Option<Category> { unimplemented!() }
 }
