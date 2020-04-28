@@ -54,20 +54,19 @@ pub fn resolve_link(
 pub fn check_filesystem<C>(
     current_directory: &Path,
     path: &Path,
-    query: String,
+    fragment: Option<&str>,
     ctx: &C,
 ) -> Result<(), Reason>
 where
     C: Context,
 {
     log::debug!(
-        "Checking \"{}#{}\" in the context of \"{}\"",
+        "Checking \"{}\" in the context of \"{}\"",
         path.display(),
-        query,
         current_directory.display()
     );
 
-    if !query.is_empty() {
+    if !fragment.is_none() {
         unimplemented!(
             "TODO: Use the query string to check if a section header exists"
         );

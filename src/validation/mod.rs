@@ -10,7 +10,7 @@ use reqwest::{header::HeaderMap, Client, Url};
 use std::{
     collections::HashMap,
     path::Path,
-    sync::MutexGuard,
+    sync::{Mutex, MutexGuard},
     time::{Duration, SystemTime},
 };
 
@@ -110,9 +110,9 @@ where
     }
 
     match link.category() {
-        Some(Category::FileSystem { path, query }) => Outcome::from_result(
+        Some(Category::FileSystem { path, fragment }) => Outcome::from_result(
             link,
-            check_filesystem(current_directory, &path, query, ctx),
+            check_filesystem(current_directory, &path, fragment.as_deref(), ctx),
         ),
         Some(Category::Url(url)) => {
             Outcome::from_result(link, check_web(&url, ctx).await)
@@ -224,5 +224,49 @@ pub struct CacheEntry {
 impl CacheEntry {
     pub const fn new(timestamp: SystemTime, success: bool) -> Self {
         CacheEntry { timestamp, success }
+    }
+}
+
+#[derive(Debug)]
+pub struct StandardContext {
+    client: Client,
+    options: Options,
+    cache: Mutex<Cache>,
+}
+
+impl StandardContext {
+    const USER_AGENT: &'static str =
+        concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+
+    /// Create a [`StandardContext`] with an already initialized [`Client`].
+    pub fn with_client(client: Client) -> Self {
+        StandardContext {
+            client,
+            options: Options::default(),
+            cache: Mutex::new(Cache::new()),
+        }
+    }
+
+    pub fn options_mut(&mut self) -> &mut Options { &mut self.options }
+}
+
+impl Default for StandardContext {
+    fn default() -> Self {
+        let client = Client::builder()
+            .user_agent(StandardContext::USER_AGENT)
+            .build()
+            .expect("Unable to initialize the client");
+
+        StandardContext::with_client(client)
+    }
+}
+
+impl Context for StandardContext {
+    fn client(&self) -> &Client { &self.client }
+
+    fn filesystem_options(&self) -> &Options { &self.options }
+
+    fn cache(&self) -> Option<MutexGuard<Cache>> {
+        Some(self.cache.lock().expect("Mutex was poisoned"))
     }
 }
