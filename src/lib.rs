@@ -1,12 +1,15 @@
 //! A library for extracting and validating links.
 //!
+//! The majority of this code has been extracted from the
+//! [`mdbook-linkcheck`](https://crates.io/crates/mdbook-linkcheck) plugin, so
+//! it may have some bias towards the way `mdbook` works.
+//!
 //! # Examples
 //!
-//! If you were validating links in batches, this is how you might go about
-//! it...
+//! If you were validating links in batches, this is one way to go about it:
 //!
 //! ```rust
-//! use linkcheck::{Link, StandardContext};
+//! use linkcheck::{Link, BasicContext};
 //! use std::path::Path;
 //! use codespan::Files;
 //!
@@ -19,7 +22,7 @@
 //! This is some markdown linking to [a website](https://example.com) and
 //! [a file](./README.md).
 //! "#;
-//! let file_id = files.add("some_text.md", src);
+//! let file_id = files.add("blah.md", src);
 //!
 //! // we then need to extract all the links and their location in the document
 //! let links = linkcheck::scanners::markdown(src);
@@ -36,8 +39,11 @@
 //!
 //! // the validation process also need some contextual information (e.g. HTTP
 //! // client, file system validation options, and a cache for expensive web
-//! // requests)
-//! let ctx = StandardContext::default();
+//! // requests).
+//! //
+//! // Basic users won't need to tweak this in any way, so a default context
+//! // type has been provided for you.
+//! let ctx = BasicContext::default();
 //!
 //! // and now we can run the validation step!
 //! let result = linkcheck::validate(current_dir, links, &ctx).await;
@@ -48,8 +54,11 @@
 //! ```
 
 #![forbid(unsafe_code)]
-
-pub extern crate codespan;
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    missing_copy_implementations
+)]
 
 #[cfg(test)]
 #[macro_use]
@@ -58,7 +67,7 @@ extern crate pretty_assertions;
 pub mod scanners;
 pub mod validation;
 
-pub use validation::{validate, StandardContext};
+pub use validation::{validate, BasicContext};
 
 use codespan::{FileId, Span};
 use http::uri::PathAndQuery;
@@ -66,7 +75,7 @@ use reqwest::Url;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Category {
+enum Category {
     /// A local file.
     FileSystem {
         path: PathBuf,
@@ -103,15 +112,20 @@ impl Category {
     }
 }
 
+/// A link to some other resource.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct Link {
+    /// The link itself.
     pub href: String,
+    /// Where the [`Link`] lies in its source text.
     pub span: Span,
+    /// Which document does this [`Link`] belong to?
     pub file: FileId,
 }
 
 impl Link {
+    /// Create a new [`Link`].
     pub fn new<S: Into<String>>(href: S, span: Span, file: FileId) -> Self {
         Link {
             href: href.into(),
@@ -120,9 +134,7 @@ impl Link {
         }
     }
 
-    pub fn category(&self) -> Option<Category> {
-        Category::try_parse(&self.href)
-    }
+    fn category(&self) -> Option<Category> { Category::try_parse(&self.href) }
 }
 
 #[cfg(test)]

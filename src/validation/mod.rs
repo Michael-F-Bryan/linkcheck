@@ -1,3 +1,5 @@
+//! Code for validating the various types of [`Link`].
+
 mod filesystem;
 mod web;
 
@@ -18,15 +20,19 @@ use std::{
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Reason {
-    #[error("Linking outside of the book directory is forbidden")]
+    /// The link goes outside of the root directory.
+    #[error("Linking outside of the \"root\" directory is forbidden")]
     TraversesParentDirectories,
+    /// The OS returned an error (e.g. file not found).
     #[error("An OS-level error occurred")]
     Io(#[from] std::io::Error),
+    /// The HTTP client returned an error.
     #[error("The web client encountered an error")]
     Web(#[from] reqwest::Error),
 }
 
 impl Reason {
+    /// Was this failure due to a missing file?
     pub fn file_not_found(&self) -> bool {
         match self {
             Reason::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
@@ -34,6 +40,7 @@ impl Reason {
         }
     }
 
+    /// Did the HTTP client time out?
     pub fn timed_out(&self) -> bool {
         match self {
             Reason::Web(e) => e.is_timeout(),
@@ -112,7 +119,12 @@ where
     match link.category() {
         Some(Category::FileSystem { path, fragment }) => Outcome::from_result(
             link,
-            check_filesystem(current_directory, &path, fragment.as_deref(), ctx),
+            check_filesystem(
+                current_directory,
+                &path,
+                fragment.as_deref(),
+                ctx,
+            ),
         ),
         Some(Category::Url(url)) => {
             Outcome::from_result(link, check_web(&url, ctx).await)
@@ -144,12 +156,36 @@ impl Outcome {
     }
 }
 
+/// The result of validating a batch of [`Link`]s.
 #[derive(Debug, Default)]
 pub struct Outcomes {
+    /// Valid links.
     pub valid: Vec<Link>,
+    /// Links which are broken.
     pub invalid: Vec<InvalidLink>,
+    /// Items that were explicitly ignored by the [`Context`].
     pub ignored: Vec<Link>,
+    /// Links which we weren't able to identify a suitable validator for.
     pub unknown_category: Vec<Link>,
+}
+
+impl Outcomes {
+    /// Create an empty set of [`Outcomes`].
+    pub fn empty() -> Self { Outcomes::default() }
+
+    /// Merge two [`Outcomes`].
+    pub fn merge(&mut self, other: Outcomes) {
+        let Outcomes {
+            valid,
+            invalid,
+            ignored,
+            unknown_category,
+        } = other;
+        self.valid.extend(valid);
+        self.invalid.extend(invalid);
+        self.ignored.extend(ignored);
+        self.unknown_category.extend(unknown_category);
+    }
 }
 
 impl Extend<Outcome> for Outcomes {
@@ -165,9 +201,20 @@ impl Extend<Outcome> for Outcomes {
     }
 }
 
+impl Extend<Outcomes> for Outcomes {
+    fn extend<T: IntoIterator<Item = Outcomes>>(&mut self, items: T) {
+        for item in items {
+            self.merge(item);
+        }
+    }
+}
+
+/// A [`Link`] and the [`Reason`] why it is invalid.
 #[derive(Debug)]
 pub struct InvalidLink {
+    /// The invalid link.
     pub link: Link,
+    /// Why is this link invalid?
     pub reason: Reason,
 }
 
@@ -181,6 +228,7 @@ impl Cache {
     /// Create a new, empty [`Cache`].
     pub fn new() -> Self { Cache::default() }
 
+    /// Lookup a particular [`CacheEntry`].
     pub fn lookup(&self, url: &Url) -> Option<&CacheEntry> {
         self.entries.get(url)
     }
@@ -191,10 +239,10 @@ impl Cache {
     }
 
     /// Ask the [`Cache`] whether a particular [`Url`] is still okay (i.e.
-    /// [`CacheEntry::success`] is `true`).
+    /// [`CacheEntry::valid`] is `true`).
     pub fn url_is_still_valid(&self, url: &Url, timeout: Duration) -> bool {
         if let Some(entry) = self.lookup(url) {
-            if entry.success {
+            if entry.valid {
                 if let Ok(time_since_check_was_done) = entry.timestamp.elapsed()
                 {
                     return time_since_check_was_done < timeout;
@@ -215,53 +263,62 @@ impl Cache {
     pub fn clear(&mut self) { self.entries.clear(); }
 }
 
+/// A timestamped boolean used by the [`Cache`] to keep track of the last time
+/// a web [`Link`] was checked.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CacheEntry {
+    /// When the [`CacheEntry`] was created.
     pub timestamp: SystemTime,
-    pub success: bool,
+    /// Did we find a valid resource the last time this [`Link`] was checked?
+    pub valid: bool,
 }
 
 impl CacheEntry {
-    pub const fn new(timestamp: SystemTime, success: bool) -> Self {
-        CacheEntry { timestamp, success }
+    /// Create a new [`CacheEntry`].
+    pub const fn new(timestamp: SystemTime, valid: bool) -> Self {
+        CacheEntry { timestamp, valid }
     }
 }
 
+/// A basic [`Context`] implementation which uses all the defaults.
 #[derive(Debug)]
-pub struct StandardContext {
+pub struct BasicContext {
     client: Client,
     options: Options,
     cache: Mutex<Cache>,
 }
 
-impl StandardContext {
-    const USER_AGENT: &'static str =
+impl BasicContext {
+    /// The User-Agent used by the [`BasicContext::client()`].
+    pub const USER_AGENT: &'static str =
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
-    /// Create a [`StandardContext`] with an already initialized [`Client`].
+    /// Create a [`BasicContext`] with an already initialized [`Client`].
     pub fn with_client(client: Client) -> Self {
-        StandardContext {
+        BasicContext {
             client,
             options: Options::default(),
             cache: Mutex::new(Cache::new()),
         }
     }
 
+    /// Get a mutable reference to the [`Options`] used when validating
+    /// filesystem links.
     pub fn options_mut(&mut self) -> &mut Options { &mut self.options }
 }
 
-impl Default for StandardContext {
+impl Default for BasicContext {
     fn default() -> Self {
         let client = Client::builder()
-            .user_agent(StandardContext::USER_AGENT)
+            .user_agent(BasicContext::USER_AGENT)
             .build()
             .expect("Unable to initialize the client");
 
-        StandardContext::with_client(client)
+        BasicContext::with_client(client)
     }
 }
 
-impl Context for StandardContext {
+impl Context for BasicContext {
     fn client(&self) -> &Client { &self.client }
 
     fn filesystem_options(&self) -> &Options { &self.options }

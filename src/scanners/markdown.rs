@@ -1,4 +1,4 @@
-use crate::codespan::Span;
+use codespan::Span;
 use pulldown_cmark::{Event, Options, Parser, Tag};
 
 /// A scanner that uses [`pulldown_cmark`] to extract all links from markdown.
@@ -6,7 +6,7 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 /// # Examples
 ///
 /// ```rust
-/// # use linkcheck::codespan::Span;
+/// # use codespan::Span;
 /// let src = "This is a [link](https://example.com/) and an ![Image](img.png)";
 ///
 /// let got: Vec<_> = linkcheck::scanners::markdown(src).collect();

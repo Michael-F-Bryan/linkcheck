@@ -88,6 +88,7 @@ impl Options {
     /// The name used by [`Options::default_file()`].
     pub const DEFAULT_FILE: &'static str = "index.html";
 
+    /// Create a new [`Options`] populated with some sane defaults.
     pub fn new() -> Self {
         Options {
             root_directory: None,
@@ -124,10 +125,12 @@ impl Options {
         }
     }
 
+    /// Are links allowed to go outside of the [`Options::root_directory()`]?
     pub fn links_may_traverse_the_root_directory(&self) -> bool {
         self.links_may_traverse_the_root_directory
     }
 
+    /// Set [`Options::links_may_traverse_the_root_directory()`].
     pub fn set_links_may_traverse_the_root_directory(
         self,
         value: bool,

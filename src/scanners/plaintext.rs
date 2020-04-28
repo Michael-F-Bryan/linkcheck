@@ -1,4 +1,4 @@
-use crate::codespan::Span;
+use codespan::Span;
 use linkify::{LinkFinder, LinkKind};
 
 /// Use the [`linkify`] crate to find all URLs in a string of normal text.
@@ -6,7 +6,7 @@ use linkify::{LinkFinder, LinkKind};
 /// # Examples
 ///
 /// ```rust
-/// # use linkcheck::codespan::Span;
+/// # use codespan::Span;
 /// let src = "hello http://localhost/ world. this is file://some/text";
 ///
 /// let got: Vec<_> = linkcheck::scanners::plaintext(src).collect();

@@ -26,7 +26,7 @@ where
 {
     log::debug!("Checking \"{}\" on the web", url);
 
-    if already_successful(&url, ctx) {
+    if already_valid(&url, ctx) {
         log::debug!("The cache says \"{}\" is still valid", url);
         return Ok(());
     }
@@ -42,7 +42,7 @@ where
     result.map_err(Reason::from)
 }
 
-fn already_successful<C>(url: &Url, ctx: &C) -> bool
+fn already_valid<C>(url: &Url, ctx: &C) -> bool
 where
     C: Context,
 {
