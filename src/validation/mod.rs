@@ -93,7 +93,7 @@ pub fn validate<'a, L, C>(
 where
     L: IntoIterator<Item = Link>,
     L::IntoIter: 'a,
-    C: Context,
+    C: Context + ?Sized,
 {
     futures::stream::iter(links)
         .map(move |link| validate_one(link, current_directory, ctx))
@@ -109,7 +109,7 @@ async fn validate_one<C>(
     ctx: &C,
 ) -> Outcome
 where
-    C: Context,
+    C: Context + ?Sized,
 {
     if ctx.should_ignore(&link) {
         log::debug!("Ignoring \"{}\"", link.href);

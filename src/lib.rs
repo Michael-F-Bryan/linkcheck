@@ -86,7 +86,7 @@ enum Category {
 }
 
 impl Category {
-    fn try_parse(src: &str) -> Option<Self> {
+    fn categorise(src: &str) -> Option<Self> {
         if let Ok(url) = src.parse() {
             return Some(Category::Url(url));
         }
@@ -134,7 +134,7 @@ impl Link {
         }
     }
 
-    fn category(&self) -> Option<Category> { Category::try_parse(&self.href) }
+    fn category(&self) -> Option<Category> { Category::categorise(&self.href) }
 }
 
 #[cfg(test)]
@@ -174,7 +174,7 @@ mod tests {
         ];
 
         for (src, should_be) in inputs {
-            let got = Category::try_parse(src);
+            let got = Category::categorise(src);
             assert_eq!(got, should_be, "{}", src);
         }
     }

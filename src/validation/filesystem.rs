@@ -62,7 +62,7 @@ pub fn check_filesystem<C>(
     ctx: &C,
 ) -> Result<(), Reason>
 where
-    C: Context,
+    C: Context + ?Sized,
 {
     log::debug!(
         "Checking \"{}\" in the context of \"{}\"",
