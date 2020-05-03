@@ -6,11 +6,11 @@ use std::time::SystemTime;
 /// Send a GET request to a particular endpoint.
 pub async fn get(
     client: &Client,
-    url: &Url,
+    url: Url,
     extra_headers: HeaderMap,
 ) -> Result<(), reqwest::Error> {
     client
-        .get(url.clone())
+        .get(url)
         .headers(extra_headers)
         .send()
         .await?
@@ -22,7 +22,7 @@ pub async fn get(
 /// Check whether a [`Url`] points to a valid resource on the internet.
 pub async fn check_web<C>(url: &Url, ctx: &C) -> Result<(), Reason>
 where
-    C: Context,
+    C: Context + ?Sized,
 {
     log::debug!("Checking \"{}\" on the web", url);
 
@@ -31,20 +31,23 @@ where
         return Ok(());
     }
 
-    let result = get(ctx.client(), &url, ctx.url_specific_headers(&url)).await;
+    let result =
+        get(ctx.client(), url.clone(), ctx.url_specific_headers(&url)).await;
 
     if let Some(fragment) = url.fragment() {
+        // TODO: check the fragment
         log::warn!("Fragment checking isn't implemented, not checking if there is a \"{}\" header in \"{}\"", fragment, url);
     }
 
-    update_cache(url, ctx, CacheEntry::new(SystemTime::now(), result.is_ok()));
+    let entry = CacheEntry::new(SystemTime::now(), result.is_ok());
+    update_cache(url, ctx, entry);
 
     result.map_err(Reason::from)
 }
 
 fn already_valid<C>(url: &Url, ctx: &C) -> bool
 where
-    C: Context,
+    C: Context + ?Sized,
 {
     if let Some(cache) = ctx.cache() {
         return cache.url_is_still_valid(url, ctx.cache_timeout());
@@ -55,7 +58,7 @@ where
 
 fn update_cache<C>(url: &Url, ctx: &C, entry: CacheEntry)
 where
-    C: Context,
+    C: Context + ?Sized,
 {
     if let Some(mut cache) = ctx.cache() {
         cache.insert(url.clone(), entry);

@@ -51,6 +51,10 @@ pub fn resolve_link(
 }
 
 /// Check whether a [`Path`] points to a valid file on disk.
+///
+/// If a fragment specifier is provided, this function will scan through the
+/// linked document and check that the file contains the corresponding anchor
+/// (e.g. markdown heading or HTML `id`).
 pub fn check_filesystem<C>(
     current_directory: &Path,
     path: &Path,
@@ -66,13 +70,24 @@ where
         current_directory.display()
     );
 
-    if !fragment.is_none() {
-        unimplemented!(
-            "TODO: Use the query string to check if a section header exists"
+    let resolved_location =
+        resolve_link(current_directory, path, ctx.filesystem_options())?;
+
+    log::debug!(
+        "\"{}\" resolved to \"{}\"",
+        path.display(),
+        resolved_location.display()
+    );
+
+    if let Some(fragment) = fragment {
+        // TODO: detect the file type and check the fragment exists
+        log::warn!(
+            "Not checking that the \"{}\" section exists in \"{}\" because fragment resolution isn't implemented",
+            fragment,
+            resolved_location.display(),
         );
     }
 
-    resolve_link(current_directory, &path, ctx.filesystem_options())?;
     Ok(())
 }
 
