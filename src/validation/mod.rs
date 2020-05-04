@@ -1,8 +1,10 @@
 //! Code for validating the various types of [`Link`].
 
+mod cache;
 mod filesystem;
 mod web;
 
+pub use cache::{Cache, CacheEntry};
 pub use filesystem::{check_filesystem, resolve_link, Options};
 pub use web::{check_web, get};
 
@@ -10,10 +12,9 @@ use crate::{Category, Link};
 use futures::{Future, StreamExt};
 use reqwest::{header::HeaderMap, Client, Url};
 use std::{
-    collections::HashMap,
     path::Path,
     sync::{Mutex, MutexGuard},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 /// Possible reasons for a bad link.
@@ -216,68 +217,6 @@ pub struct InvalidLink {
     pub link: Link,
     /// Why is this link invalid?
     pub reason: Reason,
-}
-
-/// A cache used to skip unnecessary network requests.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Cache {
-    entries: HashMap<Url, CacheEntry>,
-}
-
-impl Cache {
-    /// Create a new, empty [`Cache`].
-    pub fn new() -> Self { Cache::default() }
-
-    /// Lookup a particular [`CacheEntry`].
-    pub fn lookup(&self, url: &Url) -> Option<&CacheEntry> {
-        self.entries.get(url)
-    }
-
-    /// Add a new [`CacheEntry`] to the cache.
-    pub fn insert(&mut self, url: Url, entry: CacheEntry) {
-        self.entries.insert(url, entry);
-    }
-
-    /// Ask the [`Cache`] whether a particular [`Url`] is still okay (i.e.
-    /// [`CacheEntry::valid`] is `true`).
-    pub fn url_is_still_valid(&self, url: &Url, timeout: Duration) -> bool {
-        if let Some(entry) = self.lookup(url) {
-            if entry.valid {
-                if let Ok(time_since_check_was_done) = entry.timestamp.elapsed()
-                {
-                    return time_since_check_was_done < timeout;
-                }
-            }
-        }
-
-        false
-    }
-
-    /// Iterate over all known [`CacheEntries`][CacheEntry], regardless of
-    /// whether they are stale or invalid.
-    pub fn entries(&self) -> impl Iterator<Item = (&Url, &CacheEntry)> + '_ {
-        self.entries.iter()
-    }
-
-    /// Forget all [`CacheEntries`][CacheEntry].
-    pub fn clear(&mut self) { self.entries.clear(); }
-}
-
-/// A timestamped boolean used by the [`Cache`] to keep track of the last time
-/// a web [`Link`] was checked.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct CacheEntry {
-    /// When the [`CacheEntry`] was created.
-    pub timestamp: SystemTime,
-    /// Did we find a valid resource the last time this [`Link`] was checked?
-    pub valid: bool,
-}
-
-impl CacheEntry {
-    /// Create a new [`CacheEntry`].
-    pub const fn new(timestamp: SystemTime, valid: bool) -> Self {
-        CacheEntry { timestamp, valid }
-    }
 }
 
 /// A basic [`Context`] implementation which uses all the defaults.
