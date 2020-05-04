@@ -93,6 +93,7 @@ where
 
 /// Options to be used with [`resolve_link()`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Options {
     root_directory: Option<PathBuf>,
     default_file: OsString,
