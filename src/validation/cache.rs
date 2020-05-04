@@ -42,12 +42,18 @@ impl Cache {
 
     /// Iterate over all known [`CacheEntries`][CacheEntry], regardless of
     /// whether they are stale or invalid.
-    pub fn entries(&self) -> impl Iterator<Item = (&Url, &CacheEntry)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&Url, &CacheEntry)> + '_ {
         self.entries.iter()
     }
 
     /// Forget all [`CacheEntries`][CacheEntry].
     pub fn clear(&mut self) { self.entries.clear(); }
+}
+
+impl Extend<(Url, CacheEntry)> for Cache {
+    fn extend<T: IntoIterator<Item = (Url, CacheEntry)>>(&mut self, iter: T) {
+        self.entries.extend(iter);
+    }
 }
 
 /// A timestamped boolean used by the [`Cache`] to keep track of the last time
