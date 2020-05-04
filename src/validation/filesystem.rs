@@ -1,5 +1,6 @@
 use crate::validation::{Context, Reason};
 use std::{
+    collections::HashMap,
     ffi::{OsStr, OsString},
     io,
     path::{Path, PathBuf},
@@ -98,9 +99,16 @@ pub struct Options {
     root_directory: Option<PathBuf>,
     default_file: OsString,
     links_may_traverse_the_root_directory: bool,
+    alternate_extensions: HashMap<OsString, Vec<OsString>>,
 }
 
 impl Options {
+    /// A mapping of possible alternate extensions to try when checking a
+    /// filesystem link.
+    pub const DEFAULT_ALTERNATE_EXTENSIONS: &'static [(
+        &'static str,
+        &'static [&'static str],
+    )] = &[("md", &["html"])];
     /// The name used by [`Options::default_file()`].
     pub const DEFAULT_FILE: &'static str = "index.html";
 
@@ -110,6 +118,15 @@ impl Options {
             root_directory: None,
             default_file: OsString::from(Options::DEFAULT_FILE),
             links_may_traverse_the_root_directory: false,
+            alternate_extensions: Options::DEFAULT_ALTERNATE_EXTENSIONS
+                .iter()
+                .map(|(ext, alts)| {
+                    (
+                        OsString::from(ext),
+                        alts.iter().map(OsString::from).collect(),
+                    )
+                })
+                .collect(),
         }
     }
 
@@ -139,6 +156,37 @@ impl Options {
             default_file: default_file.into(),
             ..self
         }
+    }
+
+    /// Get the map of alternate extensions to use when checking.
+    ///
+    /// By default we only map `*.md` to `*.html`
+    /// ([`Options::DEFAULT_ALTERNATE_EXTENSIONS`]).
+    pub fn alternate_extensions(
+        &self,
+    ) -> impl Iterator<Item = (&OsStr, impl Iterator<Item = &OsStr>)> {
+        self.alternate_extensions.iter().map(|(key, value)| {
+            (key.as_os_str(), value.iter().map(|alt| alt.as_os_str()))
+        })
+    }
+
+    /// Set the [`Options::alternate_extensions()`] mapping.
+    pub fn set_alternate_extensions<S, I, V>(mut self, alternates: I) -> Self
+    where
+        I: IntoIterator<Item = (S, V)>,
+        S: Into<OsString>,
+        V: IntoIterator<Item = S>,
+    {
+        let mut mapping = HashMap::new();
+
+        for (ext, alts) in alternates {
+            mapping
+                .insert(ext.into(), alts.into_iter().map(Into::into).collect());
+        }
+
+        self.alternate_extensions = mapping;
+
+        self
     }
 
     /// Are links allowed to go outside of the [`Options::root_directory()`]?
