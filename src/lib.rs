@@ -52,6 +52,14 @@
 //! assert_eq!(result.valid.len(), 2);
 //! # }
 //! ```
+//!
+//! # Cargo Features
+//!
+//! Extra functionality is accessible by enabling feature flags. The features
+//! currently available are:
+//!
+//! * **serde-1** - Adds `Serialize` and `Deserialize` implementations for use
+//!   with `serde`
 
 #![forbid(unsafe_code)]
 #![deny(
@@ -71,8 +79,8 @@ pub use validation::{validate, BasicContext};
 
 use codespan::{FileId, Span};
 use http::uri::PathAndQuery;
-use url::Url;
 use std::path::PathBuf;
+use url::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Category {
