@@ -36,6 +36,13 @@ use std::{
 /// `./whatever/` will be resolved to `./whatever/index.html`, which is the
 /// default behaviour for web browsers.
 ///
+/// ## Alternate Extensions
+///
+/// Sometimes you might have a `index.md` document but also accept `index.html`
+/// as a valid link (like in `mdbook`). For this you can provide a mapping of
+/// [`Options::alternate_extensions()`] to fall back to when the original
+/// extension doesn't work.
+///
 /// [dta]: https://en.wikipedia.org/wiki/Directory_traversal_attack
 pub fn resolve_link(
     current_directory: &Path,
@@ -44,11 +51,16 @@ pub fn resolve_link(
 ) -> Result<PathBuf, Reason> {
     let joined = options.join(current_directory, link)?;
 
-    let canonical = options.canonicalize(&joined)?;
-    options.sanity_check(&canonical)?;
+    let candidates = options.possible_names(joined);
 
-    // Note: canonicalizing also made sure the file exists
-    Ok(canonical)
+    for candidate in candidates {
+        if let Ok(canonical) = options.canonicalize(&candidate) {
+            options.sanity_check(&canonical)?;
+            return Ok(canonical);
+        }
+    }
+
+    Err(Reason::Io(io::ErrorKind::NotFound.into()))
 }
 
 /// Check whether a [`Path`] points to a valid file on disk.
@@ -99,18 +111,27 @@ pub struct Options {
     root_directory: Option<PathBuf>,
     default_file: OsString,
     links_may_traverse_the_root_directory: bool,
-    alternate_extensions: HashMap<OsString, Vec<OsString>>,
+    // Note: the key is normalised to lowercase to make sure extensions are
+    // case insensitive
+    alternate_extensions: HashMap<String, Vec<OsString>>,
 }
 
 impl Options {
-    /// A mapping of possible alternate extensions to try when checking a
-    /// filesystem link.
-    pub const DEFAULT_ALTERNATE_EXTENSIONS: &'static [(
-        &'static str,
-        &'static [&'static str],
-    )] = &[("md", &["html"])];
     /// The name used by [`Options::default_file()`].
     pub const DEFAULT_FILE: &'static str = "index.html";
+
+    /// A mapping of possible alternate extensions to try when checking a
+    /// filesystem link.
+    pub fn default_alternate_extensions(
+    ) -> impl IntoIterator<Item = (OsString, impl IntoIterator<Item = OsString>)>
+    {
+        const MAPPING: &'static [(&'static str, &'static [&'static str])] =
+            &[("md", &["html"])];
+
+        MAPPING.iter().map(|(ext, alts)| {
+            (OsString::from(ext), alts.iter().map(OsString::from))
+        })
+    }
 
     /// Create a new [`Options`] populated with some sane defaults.
     pub fn new() -> Self {
@@ -118,12 +139,12 @@ impl Options {
             root_directory: None,
             default_file: OsString::from(Options::DEFAULT_FILE),
             links_may_traverse_the_root_directory: false,
-            alternate_extensions: Options::DEFAULT_ALTERNATE_EXTENSIONS
-                .iter()
-                .map(|(ext, alts)| {
+            alternate_extensions: Options::default_alternate_extensions()
+                .into_iter()
+                .map(|(key, values)| {
                     (
-                        OsString::from(ext),
-                        alts.iter().map(OsString::from).collect(),
+                        key.to_string_lossy().to_lowercase(),
+                        values.into_iter().map(Into::into).collect(),
                     )
                 })
                 .collect(),
@@ -161,12 +182,12 @@ impl Options {
     /// Get the map of alternate extensions to use when checking.
     ///
     /// By default we only map `*.md` to `*.html`
-    /// ([`Options::DEFAULT_ALTERNATE_EXTENSIONS`]).
+    /// ([`Options::default_alternate_extensions()`]).
     pub fn alternate_extensions(
         &self,
     ) -> impl Iterator<Item = (&OsStr, impl Iterator<Item = &OsStr>)> {
         self.alternate_extensions.iter().map(|(key, value)| {
-            (key.as_os_str(), value.iter().map(|alt| alt.as_os_str()))
+            (OsStr::new(key), value.iter().map(|alt| alt.as_os_str()))
         })
     }
 
@@ -177,14 +198,15 @@ impl Options {
         S: Into<OsString>,
         V: IntoIterator<Item = S>,
     {
-        let mut mapping = HashMap::new();
-
-        for (ext, alts) in alternates {
-            mapping
-                .insert(ext.into(), alts.into_iter().map(Into::into).collect());
-        }
-
-        self.alternate_extensions = mapping;
+        self.alternate_extensions = alternates
+            .into_iter()
+            .map(|(key, values)| {
+                (
+                    key.into().to_string_lossy().to_lowercase(),
+                    values.into_iter().map(Into::into).collect(),
+                )
+            })
+            .collect();
 
         self
     }
@@ -259,6 +281,28 @@ impl Options {
         }
 
         Ok(())
+    }
+
+    /// sometimes the file being linked to may be usable with another extension
+    /// (e.g. in mdbook, markdown files can be linked to with the HTML
+    /// extension).
+    fn possible_names(
+        &self,
+        original: PathBuf,
+    ) -> impl IntoIterator<Item = PathBuf> {
+        let mut names = vec![original.clone()];
+
+        if let Some(alternatives) = original
+            .extension()
+            .map(|ext| ext.to_string_lossy().to_lowercase())
+            .and_then(|ext| self.alternate_extensions.get(&ext))
+        {
+            for alternative in alternatives {
+                names.push(original.with_extension(alternative));
+            }
+        }
+
+        names
     }
 }
 
@@ -385,5 +429,20 @@ mod tests {
         let got = resolve_link(&foo, link, &options).unwrap();
 
         assert_eq!(got, bar.join("index.html"));
+    }
+
+    #[test]
+    fn markdown_files_can_be_used_as_html() {
+        let temp = tempfile::tempdir().unwrap();
+        touch("index.html", &[temp.path()]);
+        let link = "index.md";
+        // let options = Options::default()
+        //     .set_alternate_extensions(Options::DEFAULT_ALTERNATE_EXTENSIONS);
+        let options = Options::default()
+            .set_alternate_extensions(Options::default_alternate_extensions());
+
+        let got = resolve_link(temp.path(), Path::new(link), &options).unwrap();
+
+        assert_eq!(got, temp.path().join("index.html"));
     }
 }
