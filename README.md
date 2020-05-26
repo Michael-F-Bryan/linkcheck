@@ -9,6 +9,9 @@
 
 A library for extracting and validating links.
 
+For insight into how this crate is designed and was implemented, you may want to
+read [the original blog post][blog].
+
 ## License
 
 This project is licensed under either of
@@ -35,4 +38,4 @@ do their best to avoid them, and welcome help in analysing and fixing them.
 
 [API Docs]: https://michael-f-bryan.github.io/linkcheck
 [crev]: https://github.com/crev-dev/cargo-crev
-
+[blog]: http://adventures.michaelfbryan.com/posts/linkchecker/
