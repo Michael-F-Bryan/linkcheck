@@ -46,8 +46,9 @@ pub trait Context {
 /// A basic [`Context`] implementation which uses all the defaults.
 #[derive(Debug)]
 pub struct BasicContext {
+    /// Options used when validating filesystem links.
+    pub options: Options,
     client: Client,
-    options: Options,
     cache: Mutex<Cache>,
 }
 
@@ -67,6 +68,7 @@ impl BasicContext {
 
     /// Get a mutable reference to the [`Options`] used when validating
     /// filesystem links.
+    #[deprecated = "Access the field directly instead"]
     pub fn options_mut(&mut self) -> &mut Options { &mut self.options }
 }
 

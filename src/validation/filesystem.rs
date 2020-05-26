@@ -2,8 +2,10 @@ use crate::validation::{Context, Reason};
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
+    fmt::{self, Debug, Formatter},
     io,
     path::{Component, Path, PathBuf},
+    sync::Arc,
 };
 
 /// Try to resolve a link relative to the current directory.
@@ -90,8 +92,8 @@ where
         current_directory.display()
     );
 
-    let resolved_location =
-        resolve_link(current_directory, path, ctx.filesystem_options())?;
+    let options = ctx.filesystem_options();
+    let resolved_location = resolve_link(current_directory, path, options)?;
 
     log::debug!(
         "\"{}\" resolved to \"{}\"",
@@ -108,12 +110,27 @@ where
         );
     }
 
+    if let Err(reason) =
+        options.run_custom_validation(&resolved_location, fragment)
+    {
+        log::debug!(
+            "Custom validation reported \"{}\" as invalid because {}",
+            resolved_location.display(),
+            reason
+        );
+        return Err(reason);
+    }
+
     Ok(())
 }
 
 /// Options to be used with [`resolve_link()`].
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(default)
+)]
 pub struct Options {
     root_directory: Option<PathBuf>,
     default_file: OsString,
@@ -121,6 +138,8 @@ pub struct Options {
     // Note: the key is normalised to lowercase to make sure extensions are
     // case insensitive
     alternate_extensions: HashMap<String, Vec<OsString>>,
+    #[serde(skip, default = "nop_custom_validation")]
+    custom_validation: Arc<dyn Fn(&Path, Option<&str>) -> Result<(), Reason>>,
 }
 
 impl Options {
@@ -155,6 +174,7 @@ impl Options {
                     )
                 })
                 .collect(),
+            custom_validation: nop_custom_validation(),
         }
     }
 
@@ -164,13 +184,13 @@ impl Options {
     }
 
     /// Set the [`Options::root_directory()`], automatically converting to its
-    /// canonical form with [`std::fs::canonicalize()`].
+    /// canonical form with [`dunce::canonicalize()`].
     pub fn with_root_directory<P: AsRef<Path>>(
         self,
         root_directory: P,
     ) -> io::Result<Self> {
         Ok(Options {
-            root_directory: Some(std::fs::canonicalize(root_directory)?),
+            root_directory: Some(dunce::canonicalize(root_directory)?),
             ..self
         })
     }
@@ -230,6 +250,19 @@ impl Options {
     ) -> Self {
         Options {
             links_may_traverse_the_root_directory: value,
+            ..self
+        }
+    }
+
+    /// Set a function which will be executed after a link is resolved, allowing
+    /// you to apply custom business logic.
+    pub fn set_custom_validation<F>(self, custom_validation: F) -> Self
+    where
+        F: Fn(&Path, Option<&str>) -> Result<(), Reason> + 'static,
+    {
+        let custom_validation = Arc::new(custom_validation);
+        Options {
+            custom_validation,
             ..self
         }
     }
@@ -338,10 +371,63 @@ impl Options {
 
         names
     }
+
+    fn run_custom_validation(
+        &self,
+        resolved_path: &Path,
+        fragment: Option<&str>,
+    ) -> Result<(), Reason> {
+        (self.custom_validation)(resolved_path, fragment)
+    }
+}
+
+fn nop_custom_validation(
+) -> Arc<dyn Fn(&Path, Option<&str>) -> Result<(), Reason>> {
+    Arc::new(|_, _| Ok(()))
 }
 
 impl Default for Options {
     fn default() -> Self { Options::new() }
+}
+
+impl Debug for Options {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Options {
+            root_directory,
+            default_file,
+            links_may_traverse_the_root_directory,
+            alternate_extensions,
+            custom_validation: _,
+        } = self;
+
+        f.debug_struct("Options")
+            .field("root_directory", root_directory)
+            .field("default_file", default_file)
+            .field(
+                "links_may_traverse_the_root_directory",
+                links_may_traverse_the_root_directory,
+            )
+            .field("alternate_extensions", alternate_extensions)
+            .finish()
+    }
+}
+
+impl PartialEq for Options {
+    fn eq(&self, other: &Options) -> bool {
+        let Options {
+            root_directory,
+            default_file,
+            links_may_traverse_the_root_directory,
+            alternate_extensions,
+            custom_validation: _,
+        } = self;
+
+        root_directory == &other.root_directory
+            && default_file == &other.default_file
+            && links_may_traverse_the_root_directory
+                == &other.links_may_traverse_the_root_directory
+            && alternate_extensions == &other.alternate_extensions
+    }
 }
 
 fn remove_absolute_components(
@@ -355,6 +441,8 @@ fn remove_absolute_components(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::BasicContext;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     fn validation_dir() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -389,6 +477,24 @@ mod tests {
             resolve_link(&current_dir, Path::new(link), &options).unwrap();
 
         assert_eq!(got, current_dir.join(link));
+    }
+
+    #[test]
+    fn custom_validation_function_gets_called() {
+        init_logging();
+        let current_dir = validation_dir();
+        let link = "mod.rs";
+        let called = Arc::new(AtomicBool::new(false));
+        let called_2 = Arc::clone(&called);
+        let mut ctx = BasicContext::default();
+        ctx.options = Options::default().set_custom_validation(move |_, _| {
+            called_2.store(true, Ordering::SeqCst);
+            Ok(())
+        });
+
+        check_filesystem(&current_dir, Path::new(link), None, &ctx).unwrap();
+
+        assert!(called.load(Ordering::SeqCst))
     }
 
     #[test]
