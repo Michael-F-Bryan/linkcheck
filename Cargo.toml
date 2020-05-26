@@ -31,6 +31,7 @@ dunce = "1.0.0"
 tempfile = "3.1.0"
 pretty_assertions = "0.6.1"
 tokio = { version = "0.2.19", features = ["macros"] }
+env_logger = "0.7.1"
 
 [features]
 default = ["serde-1"]

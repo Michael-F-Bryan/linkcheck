@@ -54,12 +54,19 @@ pub fn resolve_link(
     let candidates = options.possible_names(joined);
 
     for candidate in candidates {
+        log::trace!(
+            "Checking if \"{}\" points to \"{}\"",
+            link.display(),
+            candidate.display(),
+        );
+
         if let Ok(canonical) = options.canonicalize(&candidate) {
             options.sanity_check(&canonical)?;
             return Ok(canonical);
         }
     }
 
+    log::trace!("None of the candidates exist for \"{}\"", link.display());
     Err(Reason::Io(io::ErrorKind::NotFound.into()))
 }
 
@@ -258,10 +265,19 @@ impl Options {
         }
     }
 
+    /// Gets the canonical version of a particular path, resolving symlinks and
+    /// other filesystem quirks.
+    ///
+    /// This will fail if the item doesn't exist.
     fn canonicalize(&self, path: &Path) -> Result<PathBuf, Reason> {
         let mut canonical = dunce::canonicalize(path)?;
 
         if canonical.is_dir() {
+            log::trace!(
+                "Appending the default file name because \"{}\" is a directory",
+                canonical.display()
+            );
+
             canonical.push(&self.default_file);
             // we need to canonicalize again because the default file may be a
             // symlink, or not exist at all
@@ -272,10 +288,22 @@ impl Options {
     }
 
     fn sanity_check(&self, path: &Path) -> Result<(), Reason> {
+        log::trace!("Applying sanity checks to \"{}\"", path.display());
+
         if let Some(root) = self.root_directory() {
+            log::trace!(
+                "Checking if \"{}\" is allowed to leave \"{}\"",
+                path.display(),
+                root.display()
+            );
+
             if !(self.links_may_traverse_the_root_directory
                 || path.starts_with(root))
             {
+                log::trace!(
+                    "\"{}\" traverses outside the \"root\" directory",
+                    path.display()
+                );
                 return Err(Reason::TraversesParentDirectories);
             }
         }
@@ -301,6 +329,12 @@ impl Options {
                 names.push(original.with_extension(alternative));
             }
         }
+
+        log::trace!(
+            "Possible candidates for \"{}\" are {:?}",
+            original.display(),
+            names
+        );
 
         names
     }
@@ -337,8 +371,16 @@ mod tests {
         }
     }
 
+    fn init_logging() {
+        let _ = env_logger::builder()
+            .filter(Some("linkcheck"), log::LevelFilter::Trace)
+            .is_test(true)
+            .try_init();
+    }
+
     #[test]
     fn resolve_mod_relative_to_validation_dir() {
+        init_logging();
         let current_dir = validation_dir();
         let link = "mod.rs";
         let options = Options::default();
@@ -351,6 +393,7 @@ mod tests {
 
     #[test]
     fn detect_possible_directory_traversal_attacks() {
+        init_logging();
         let temp = tempfile::tempdir().unwrap();
         let temp = dunce::canonicalize(temp.path()).unwrap();
         let foo = temp.join("foo");
@@ -386,6 +429,7 @@ mod tests {
 
     #[test]
     fn links_with_a_leading_slash_are_relative_to_the_root() {
+        init_logging();
         let temp = tempfile::tempdir().unwrap();
         let temp = dunce::canonicalize(temp.path()).unwrap();
         let foo = temp.join("foo");
@@ -401,6 +445,7 @@ mod tests {
 
     #[test]
     fn link_to_a_file_we_know_doesnt_exist() {
+        init_logging();
         let temp = tempfile::tempdir().unwrap();
         let temp = dunce::canonicalize(temp.path()).unwrap();
         let options = Options::default().with_root_directory(&temp).unwrap();
@@ -413,6 +458,7 @@ mod tests {
 
     #[test]
     fn absolute_link_with_no_root_set_is_an_error() {
+        init_logging();
         let temp = tempfile::tempdir().unwrap();
         let temp = dunce::canonicalize(temp.path()).unwrap();
         let options = Options::default();
@@ -425,6 +471,7 @@ mod tests {
 
     #[test]
     fn a_link_that_is_allowed_to_traverse_the_root_dir() {
+        init_logging();
         let temp = tempfile::tempdir().unwrap();
         let temp = dunce::canonicalize(temp.path()).unwrap();
         let foo = temp.join("foo");
@@ -443,6 +490,7 @@ mod tests {
 
     #[test]
     fn markdown_files_can_be_used_as_html() {
+        init_logging();
         let temp = tempfile::tempdir().unwrap();
         let temp = dunce::canonicalize(temp.path()).unwrap();
         touch("index.html", &[&temp]);
