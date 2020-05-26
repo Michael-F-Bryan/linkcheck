@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
     io,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 /// Try to resolve a link relative to the current directory.
@@ -239,7 +239,7 @@ impl Options {
                 Some(root) => {
                     let mut buffer = root.to_path_buf();
                     // append everything except the root element
-                    buffer.extend(second.iter().skip(1));
+                    buffer.extend(remove_absolute_components(second));
                     Ok(buffer)
                 },
                 // You really shouldn't provide links to absolute files on your
@@ -308,6 +308,14 @@ impl Options {
 
 impl Default for Options {
     fn default() -> Self { Options::new() }
+}
+
+fn remove_absolute_components(
+    path: &Path,
+) -> impl Iterator<Item = &OsStr> + '_ {
+    path.components()
+        .skip_while(|c| matches!(c, Component::Prefix(_) | Component::RootDir))
+        .map(|c| c.as_os_str())
 }
 
 #[cfg(test)]
