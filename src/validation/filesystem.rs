@@ -610,4 +610,33 @@ mod tests {
 
         assert_eq!(got, temp.join("index.html"));
     }
+
+    #[test]
+    fn join_paths() {
+        init_logging();
+        let temp = tempfile::tempdir().unwrap();
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let foo = temp.join("foo");
+        let bar = foo.join("bar");
+        let baz = bar.join("baz");
+        let baz_index = baz.join("index.html");
+        touch("index.html", &[&temp, &foo, &bar, &baz]);
+        let options = Options::default().with_root_directory(&temp).unwrap();
+
+        let inputs = vec![
+            ("/foo", &temp, &foo),
+            ("foo", &temp, &foo),
+            ("foo/bar", &temp, &bar),
+            ("foo/bar/baz", &temp, &baz),
+            ("/foo/bar/baz/index.html", &temp, &baz_index),
+            ("bar/baz", &foo, &baz),
+            ("baz", &bar, &baz),
+            ("index.html", &baz, &baz_index),
+        ];
+
+        for (link, base, should_be) in inputs {
+            let got = options.join(base, Path::new(link)).unwrap();
+            assert_eq!(got, *should_be);
+        }
+    }
 }
