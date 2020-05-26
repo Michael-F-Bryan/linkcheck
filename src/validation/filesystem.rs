@@ -259,13 +259,13 @@ impl Options {
     }
 
     fn canonicalize(&self, path: &Path) -> Result<PathBuf, Reason> {
-        let mut canonical = path.canonicalize()?;
+        let mut canonical = dunce::canonicalize(path)?;
 
         if canonical.is_dir() {
             canonical.push(&self.default_file);
             // we need to canonicalize again because the default file may be a
             // symlink, or not exist at all
-            canonical = canonical.canonicalize()?;
+            canonical = dunce::canonicalize(canonical)?;
         }
 
         Ok(canonical)
