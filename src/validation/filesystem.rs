@@ -278,8 +278,11 @@ impl Options {
             match self.root_directory() {
                 Some(root) => {
                     let mut buffer = root.to_path_buf();
-                    // append everything except the root element
-                    buffer.extend(remove_absolute_components(second));
+                    // append everything except the bits that make it absolute
+                    // (e.g. "/" or "C:\")
+                    buffer.extend(
+                        remove_absolute_components(second).map(|c| dbg!(c)),
+                    );
                     Ok(buffer)
                 },
                 // You really shouldn't provide links to absolute files on your
@@ -432,10 +435,9 @@ impl PartialEq for Options {
 
 fn remove_absolute_components(
     path: &Path,
-) -> impl Iterator<Item = &OsStr> + '_ {
+) -> impl Iterator<Item = Component> + '_ {
     path.components()
         .skip_while(|c| matches!(c, Component::Prefix(_) | Component::RootDir))
-        .map(|c| c.as_os_str())
 }
 
 #[cfg(test)]
