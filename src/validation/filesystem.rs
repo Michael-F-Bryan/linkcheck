@@ -533,13 +533,17 @@ mod tests {
             temp.join(&options.default_file)
         );
         // but a directory traversal attack isn't
-        assert!(matches!(
-            resolve(
-                "../../../../../../../../../../../../../../../../../etc/passwd"
-            )
-            .unwrap_err(),
-            Reason::TraversesParentDirectories
-        ));
+        let bad_path = if cfg!(windows) {
+            "../../../../../../../../../../../../../../../../../Windows/System32/cmd.exe"
+        } else {
+            "../../../../../../../../../../../../../../../../../etc/passwd"
+        };
+        let traverses_parent_dir = resolve(bad_path).unwrap_err();
+        assert!(
+            matches!(traverses_parent_dir, Reason::TraversesParentDirectories),
+            "{:?} should have traversed the parent directory",
+            traverses_parent_dir
+        );
     }
 
     #[test]
