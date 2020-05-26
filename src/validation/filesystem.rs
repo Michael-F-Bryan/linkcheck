@@ -352,12 +352,12 @@ mod tests {
     #[test]
     fn detect_possible_directory_traversal_attacks() {
         let temp = tempfile::tempdir().unwrap();
-        let foo = temp.path().join("foo");
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let foo = temp.join("foo");
         let bar = foo.join("bar");
         let baz = bar.join("baz");
-        let options =
-            Options::default().with_root_directory(temp.path()).unwrap();
-        touch(&options.default_file, &[temp.path(), &foo, &bar, &baz]);
+        let options = Options::default().with_root_directory(&temp).unwrap();
+        touch(&options.default_file, &[&temp, &foo, &bar, &baz]);
         let current_dir = baz.as_path();
         let resolve = |link: &str| -> Result<PathBuf, Reason> {
             resolve_link(current_dir, Path::new(link), &options)
@@ -372,7 +372,7 @@ mod tests {
         assert_eq!(resolve("../..").unwrap(), foo.join(&options.default_file));
         assert_eq!(
             resolve("../../..").unwrap(),
-            temp.path().join(&options.default_file)
+            temp.join(&options.default_file)
         );
         // but a directory traversal attack isn't
         assert!(matches!(
@@ -387,11 +387,11 @@ mod tests {
     #[test]
     fn links_with_a_leading_slash_are_relative_to_the_root() {
         let temp = tempfile::tempdir().unwrap();
-        let foo = temp.path().join("foo");
-        let bar = temp.path().join("bar");
-        let options =
-            Options::default().with_root_directory(temp.path()).unwrap();
-        touch(&options.default_file, &[temp.path(), &foo, &bar]);
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let foo = temp.join("foo");
+        let bar = temp.join("bar");
+        let options = Options::default().with_root_directory(&temp).unwrap();
+        touch(&options.default_file, &[&temp, &foo, &bar]);
         let link = Path::new("/bar");
 
         let got = resolve_link(&foo, link, &options).unwrap();
@@ -402,11 +402,11 @@ mod tests {
     #[test]
     fn link_to_a_file_we_know_doesnt_exist() {
         let temp = tempfile::tempdir().unwrap();
-        let options =
-            Options::default().with_root_directory(temp.path()).unwrap();
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let options = Options::default().with_root_directory(&temp).unwrap();
         let link = Path::new("./bar");
 
-        let err = resolve_link(temp.path(), link, &options).unwrap_err();
+        let err = resolve_link(&temp, link, &options).unwrap_err();
 
         assert!(err.file_not_found());
     }
@@ -414,10 +414,11 @@ mod tests {
     #[test]
     fn absolute_link_with_no_root_set_is_an_error() {
         let temp = tempfile::tempdir().unwrap();
+        let temp = dunce::canonicalize(temp.path()).unwrap();
         let options = Options::default();
         let link = Path::new("/bar");
 
-        let err = resolve_link(temp.path(), link, &options).unwrap_err();
+        let err = resolve_link(&temp, link, &options).unwrap_err();
 
         assert!(matches!(err, Reason::TraversesParentDirectories));
     }
@@ -425,9 +426,10 @@ mod tests {
     #[test]
     fn a_link_that_is_allowed_to_traverse_the_root_dir() {
         let temp = tempfile::tempdir().unwrap();
-        let foo = temp.path().join("foo");
-        let bar = temp.path().join("bar");
-        touch(Options::DEFAULT_FILE, &[temp.path(), &foo, &bar]);
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let foo = temp.join("foo");
+        let bar = temp.join("bar");
+        touch(Options::DEFAULT_FILE, &[&temp, &foo, &bar]);
         let options = Options::default()
             .with_root_directory(&foo)
             .unwrap()
@@ -442,15 +444,16 @@ mod tests {
     #[test]
     fn markdown_files_can_be_used_as_html() {
         let temp = tempfile::tempdir().unwrap();
-        touch("index.html", &[temp.path()]);
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        touch("index.html", &[&temp]);
         let link = "index.md";
         // let options = Options::default()
         //     .set_alternate_extensions(Options::DEFAULT_ALTERNATE_EXTENSIONS);
         let options = Options::default()
             .set_alternate_extensions(Options::default_alternate_extensions());
 
-        let got = resolve_link(temp.path(), Path::new(link), &options).unwrap();
+        let got = resolve_link(&temp, Path::new(link), &options).unwrap();
 
-        assert_eq!(got, temp.path().join("index.html"));
+        assert_eq!(got, temp.join("index.html"));
     }
 }
