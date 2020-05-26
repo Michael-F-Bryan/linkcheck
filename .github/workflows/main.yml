@@ -5,14 +5,15 @@ name: Continuous integration
 jobs:
   check:
     name: Compile and Test
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         rust:
           - nightly
           - stable
           # MSRV - for std::matches!()
           - 1.42.0
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -36,16 +37,12 @@ jobs:
   api-docs:
     name: Publish API Docs to GitHub Pages
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - nightly
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: nightly
           override: true
       - uses: actions-rs/cargo@v1
         with:
