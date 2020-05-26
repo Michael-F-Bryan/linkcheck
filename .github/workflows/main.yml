@@ -52,10 +52,9 @@ jobs:
         run: "echo '<meta http-equiv=\"refresh\" content=\"0; url=linkcheck/index.html\" />' > target/doc/index.html"
         shell: bash
       - name: GitHub Pages
-        uses: crazy-max/ghaction-github-pages@v1
+        uses: crazy-max/ghaction-github-pages@v2
         with:
           build_dir: target/doc
         env:
-          # TODO: Create a "public_repo" Personal Access Token
-          GITHUB_PAT: ${{ secrets.GH_TOKEN }}
+          GH_PAT: ${{ secrets.GH_TOKEN }}
 
