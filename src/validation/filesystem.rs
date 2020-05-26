@@ -272,7 +272,13 @@ impl Options {
         current_dir: &Path,
         second: &Path,
     ) -> Result<PathBuf, Reason> {
-        if second.is_absolute() {
+        log::trace!(
+            "Appending \"{}\" to \"{}\"",
+            second.display(),
+            current_dir.display()
+        );
+
+        if second.has_root() {
             // if the path is absolute (i.e. has a leading slash) then it's
             // meant to be relative to the root directory, not the current one
             match self.root_directory() {
@@ -280,9 +286,7 @@ impl Options {
                     let mut buffer = root.to_path_buf();
                     // append everything except the bits that make it absolute
                     // (e.g. "/" or "C:\")
-                    buffer.extend(
-                        remove_absolute_components(second).map(|c| dbg!(c)),
-                    );
+                    buffer.extend(remove_absolute_components(second));
                     Ok(buffer)
                 },
                 // You really shouldn't provide links to absolute files on your
@@ -294,7 +298,10 @@ impl Options {
                 // for directory traversal attacks.
                 //
                 // Feel free to send a PR if you believe otherwise.
-                None => Err(Reason::TraversesParentDirectories),
+                None => {
+                    log::warn!("The bit to be appended is absolute, but we don't have a \"root\" directory to resolve relative to");
+                    Err(Reason::TraversesParentDirectories)
+                },
             }
         } else {
             Ok(current_dir.join(second))
