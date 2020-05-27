@@ -89,6 +89,17 @@ where
                 ctx,
             ),
         ),
+        Some(Category::CurrentFile { fragment }) => {
+            // TODO: How do we want to validate links to other parts of the
+            // current file?
+            //
+            // It seems wasteful to go through the whole filesystem resolution
+            // process when the filename was recorded when adding its text to
+            // `Files`... Maybe we could thread `Files` through and then join it
+            // with `ctx.filesystem_options().root_directory()`?
+            log::warn!("Not checking \"{}\" in the current file because fragment resolution isn't implemented", fragment);
+            Outcome::Ignored(link)
+        },
         Some(Category::Url(url)) => {
             Outcome::from_result(link, check_web(&url, ctx).await)
         },

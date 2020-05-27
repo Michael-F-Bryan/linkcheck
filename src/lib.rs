@@ -89,14 +89,26 @@ enum Category {
         path: PathBuf,
         fragment: Option<String>,
     },
+    /// A link to somewhere else in the current document.
+    CurrentFile { fragment: String },
     /// A URL for something on the web.
     Url(Url),
 }
 
 impl Category {
     fn categorise(src: &str) -> Option<Self> {
+        if src.is_empty() {
+            return None;
+        }
+
         if let Ok(url) = src.parse() {
             return Some(Category::Url(url));
+        }
+
+        if src.starts_with("#") {
+            return Some(Category::CurrentFile {
+                fragment: String::from(&src[1..]),
+            });
         }
 
         let (path, fragment) = match src.find("#") {
