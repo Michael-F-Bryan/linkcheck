@@ -8,7 +8,9 @@ mod web;
 pub use cache::{Cache, CacheEntry};
 pub use context::{BasicContext, Context};
 pub use filesystem::{check_filesystem, resolve_link, Options};
-pub use web::{check_web, get};
+pub use web::{check_web, head};
+#[allow(deprecated)]
+pub use web::get;
 
 use crate::{Category, Link};
 use futures::{Future, StreamExt};

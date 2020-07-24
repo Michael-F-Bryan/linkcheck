@@ -3,14 +3,27 @@ use http::HeaderMap;
 use reqwest::{Client, Url};
 use std::time::SystemTime;
 
-/// Send a GET request to a particular endpoint.
+#[deprecated]
+/// Send a HEAD request to a particular endpoint.
+///
+/// This function is deprecated in favor of [`head`].
 pub async fn get(
     client: &Client,
     url: Url,
     extra_headers: HeaderMap,
 ) -> Result<(), reqwest::Error> {
+    head(client, url, extra_headers).await?;
+    Ok(())
+}
+
+/// Send a HEAD request to a particular endpoint.
+pub async fn head(
+    client: &Client,
+    url: Url,
+    extra_headers: HeaderMap,
+) -> Result<(), reqwest::Error> {
     client
-        .get(url)
+        .head(url)
         .headers(extra_headers)
         .send()
         .await?
@@ -32,7 +45,7 @@ where
     }
 
     let result =
-        get(ctx.client(), url.clone(), ctx.url_specific_headers(&url)).await;
+        head(ctx.client(), url.clone(), ctx.url_specific_headers(&url)).await;
 
     if let Some(fragment) = url.fragment() {
         // TODO: check the fragment
