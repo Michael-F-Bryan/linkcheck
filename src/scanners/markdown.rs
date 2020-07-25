@@ -63,7 +63,7 @@ mod tests {
         "#;
         let should_be = vec![
             (String::from("https://example.com"), Span::new(17, 44)),
-            (String::from("https://dev.null/"), Span::new(55, 56)),
+            (String::from("https://dev.null/"), Span::new(55, 76)),
             (String::from("../README.md"), Span::new(82, 102)),
             (
                 String::from("https://imgur.com/gallery/f28OkrB"),
