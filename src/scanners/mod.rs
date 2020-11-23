@@ -4,5 +4,7 @@
 mod markdown;
 mod plaintext;
 
-pub use markdown::{markdown, markdown_with_broken_link_callback, BrokenLinkCallback};
+pub use markdown::{
+    markdown, markdown_with_broken_link_callback, BrokenLinkCallback,
+};
 pub use plaintext::plaintext;

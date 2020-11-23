@@ -20,21 +20,16 @@ pub fn markdown(src: &str) -> impl Iterator<Item = (String, Span)> + '_ {
     markdown_with_broken_link_callback(src, None)
 }
 
-/// The callback passed to `pulldown-cmark` whenever a broken link is 
+/// The callback passed to `pulldown-cmark` whenever a broken link is
 /// encountered.
-pub type BrokenLinkCallback<'src> =
-    &'src mut (dyn for<'r> FnMut(
-        BrokenLink<'r>,
-    ) -> std::option::Option<(
-        CowStr<'src>,
-        CowStr<'src>,
-    )> + 'src);
+pub type BrokenLinkCallback<'src> = dyn FnMut(BrokenLink<'_>) -> std::option::Option<(CowStr<'src>, CowStr<'src>)>
+    + 'src;
 
 /// A scanner that uses [`pulldown_cmark`] to extract all links from markdown,
 /// using the supplied callback to try and fix broken links.
 pub fn markdown_with_broken_link_callback<'a>(
     src: &'a str,
-    on_broken_link: Option<BrokenLinkCallback<'a>>,
+    on_broken_link: Option<&'a mut BrokenLinkCallback<'a>>,
 ) -> impl Iterator<Item = (String, Span)> + 'a {
     Parser::new_with_broken_link_callback(
         src,
@@ -78,7 +73,8 @@ mod tests {
             ),
         ];
 
-        let got: Vec<_> = markdown(src).collect();
+        let got: Vec<_> =
+            markdown_with_broken_link_callback(src, Some(&mut |_| None)).collect();
 
         assert_eq!(got, should_be);
     }
