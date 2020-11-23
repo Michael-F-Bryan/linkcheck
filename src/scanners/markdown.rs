@@ -1,5 +1,5 @@
 use codespan::Span;
-use pulldown_cmark::{Event, Options, Parser, Tag};
+use pulldown_cmark::{BrokenLink, CowStr, Event, Options, Parser, Tag};
 
 /// A scanner that uses [`pulldown_cmark`] to extract all links from markdown.
 ///
@@ -17,22 +17,29 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 /// assert_eq!(*span, Span::new(10, 38));
 /// ```
 pub fn markdown(src: &str) -> impl Iterator<Item = (String, Span)> + '_ {
-    markdown_with_broken_link_callback(src, &|_, _| None)
+    markdown_with_broken_link_callback(src, None)
 }
+
+/// The callback passed to `pulldown-cmark` whenever a broken link is 
+/// encountered.
+pub type BrokenLinkCallback<'src> =
+    &'src mut (dyn for<'r> FnMut(
+        BrokenLink<'r>,
+    ) -> std::option::Option<(
+        CowStr<'src>,
+        CowStr<'src>,
+    )> + 'src);
 
 /// A scanner that uses [`pulldown_cmark`] to extract all links from markdown,
 /// using the supplied callback to try and fix broken links.
-pub fn markdown_with_broken_link_callback<'a, F>(
+pub fn markdown_with_broken_link_callback<'a>(
     src: &'a str,
-    on_broken_link: &'a F,
-) -> impl Iterator<Item = (String, Span)> + 'a
-where
-    F: Fn(&str, &str) -> Option<(String, String)>,
-{
+    on_broken_link: Option<BrokenLinkCallback<'a>>,
+) -> impl Iterator<Item = (String, Span)> + 'a {
     Parser::new_with_broken_link_callback(
         src,
         Options::ENABLE_FOOTNOTES,
-        Some(on_broken_link),
+        on_broken_link,
     )
     .into_offset_iter()
     .filter_map(|(event, range)| match event {
