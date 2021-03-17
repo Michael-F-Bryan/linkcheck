@@ -1,5 +1,5 @@
 use codespan::Span;
-use pulldown_cmark::{BrokenLink, CowStr, Event, Options, Parser, Tag};
+use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag};
 
 /// A scanner that uses [`pulldown_cmark`] to extract all links from markdown.
 ///
@@ -38,11 +38,18 @@ pub fn markdown_with_broken_link_callback<'a>(
     )
     .into_offset_iter()
     .filter_map(|(event, range)| match event {
+        Event::Start(Tag::Link(LinkType::Email, _, _)) => None,
         Event::Start(Tag::Link(_, dest, _))
-        | Event::Start(Tag::Image(_, dest, _)) => Some((
-            dest.to_string(),
-            Span::new(range.start as u32, range.end as u32),
-        )),
+        | Event::Start(Tag::Image(_, dest, _)) => {
+            if dest.starts_with("mailto") {
+                None
+            } else {
+                Some((
+                    dest.to_string(),
+                    Span::new(range.start as u32, range.end as u32),
+                ))
+            }
+    },
         _ => None,
     })
 }
@@ -72,6 +79,20 @@ mod tests {
                 Span::new(130, 183),
             ),
         ];
+
+        let got: Vec<_> =
+            markdown_with_broken_link_callback(src, Some(&mut |_| None)).collect();
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn mailto_links_are_ignored() {
+        let src = r#"
+[This](mailto:me@example.com) is a mailto link
+<me@example.com> is a mailto link
+        "#;
+        let should_be = vec![];
 
         let got: Vec<_> =
             markdown_with_broken_link_callback(src, Some(&mut |_| None)).collect();
