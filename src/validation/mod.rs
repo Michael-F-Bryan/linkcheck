@@ -105,6 +105,7 @@ where
         Some(Category::Url(url)) => {
             Outcome::from_result(link, check_web(&url, ctx).await)
         },
+        Some(Category::MailTo(_)) => Outcome::Ignored(link),
         None => Outcome::UnknownCategory(link),
     }
 }

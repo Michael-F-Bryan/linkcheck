@@ -93,12 +93,20 @@ enum Category {
     CurrentFile { fragment: String },
     /// A URL for something on the web.
     Url(Url),
+    /// A `mailto:` link.
+    MailTo(String),
 }
 
 impl Category {
     fn categorise(src: &str) -> Option<Self> {
         if src.is_empty() {
             return None;
+        }
+
+        let mailto_prefix = "mailto:";
+        if src.starts_with(mailto_prefix) {
+            let address = &src[mailto_prefix.len()..];
+            return Some(Category::MailTo(address.to_string()));
         }
 
         if let Ok(url) = src.parse() {
@@ -191,6 +199,10 @@ mod tests {
                     path: PathBuf::from("./README.md"),
                     fragment: Some(String::from("license")),
                 }),
+            ),
+            (
+                "mailto:michael@example.com",
+                Some(Category::MailTo(String::from("michael@example.com"))),
             ),
         ];
 
