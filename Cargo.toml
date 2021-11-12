@@ -15,7 +15,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 codespan = "0.11.0"
-linkify = "0.5.0"
+linkify = "0.7.0"
 pulldown-cmark = "0.8"
 reqwest = "0.11.1"
 futures = "0.3.4"
@@ -29,9 +29,9 @@ dunce = "1.0.0"
 
 [dev-dependencies]
 tempfile = "3.1.0"
-pretty_assertions = "0.6.1"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
-env_logger = "0.8"
+pretty_assertions = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+env_logger = "0.9"
 
 [features]
 default = ["serde-1"]
