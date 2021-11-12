@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Linkify finds links such as URLs and email addresses in plain text. It’s smart about where a link ends, such as with trailing punctuation."><meta name="keywords" content="rust, rustlang, rust-lang, linkify"><title>linkify - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../linkify/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><h2 class="location">Crate linkify</h2><div class="block version"><div class="narrow-helper"></div><p>Version 0.7.0</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all linkify's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><div id="sidebar-vars" data-name="linkify" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">linkify</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/linkify/lib.rs.html#1-120" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Linkify finds links such as URLs and email addresses in plain text.
+It’s smart about where a link ends, such as with trailing punctuation.</p>
+<p>Your reaction might be: “Do I need a library for this? Why not a regex?”.
+Let’s look at a few cases:</p>
+<ul>
+<li>In <code>http://example.com/.</code> the link should not include the trailing dot</li>
+<li><code>http://example.com/,</code> should not include the trailing comma</li>
+<li><code>(http://example.com/)</code> should not include the parens</li>
+</ul>
+<p>Seems simple enough. But then we also have these cases:</p>
+<ul>
+<li><code>https://en.wikipedia.org/wiki/Link_(The_Legend_of_Zelda)</code> should include the trailing paren</li>
+<li><code>http://üñîçøðé.com/ä</code> should also work for Unicode (including Emoji and Punycode)</li>
+<li><code>&lt;http://example.com/&gt;</code> should not include angle brackets</li>
+</ul>
+<p>This library behaves as you’d expect in the above cases and many more.
+It uses a simple scan with linear runtime.</p>
+<p>In addition to URLs, it can also find emails.</p>
+<h4 id="usage" class="section-header"><a href="#usage">Usage</a></h4>
+<p>Basic usage:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">linkify</span>::{<span class="ident">LinkFinder</span>, <span class="ident">LinkKind</span>};
+
+<span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;Have you seen http://example.com?&quot;</span>;
+<span class="kw">let</span> <span class="ident">finder</span> <span class="op">=</span> <span class="ident">LinkFinder::new</span>();
+<span class="kw">let</span> <span class="ident">links</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">finder</span>.<span class="ident">links</span>(<span class="ident">input</span>).<span class="ident">collect</span>();
+
+<span class="macro">assert_eq!</span>(<span class="number">1</span>, <span class="ident">links</span>.<span class="ident">len</span>());
+<span class="kw">let</span> <span class="ident">link</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">links</span>[<span class="number">0</span>];
+
+<span class="macro">assert_eq!</span>(<span class="string">&quot;http://example.com&quot;</span>, <span class="ident">link</span>.<span class="ident">as_str</span>());
+<span class="macro">assert_eq!</span>(<span class="number">14</span>, <span class="ident">link</span>.<span class="ident">start</span>());
+<span class="macro">assert_eq!</span>(<span class="number">32</span>, <span class="ident">link</span>.<span class="ident">end</span>());
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="ident">LinkKind::Url</span>, <span class="ident">link</span>.<span class="ident">kind</span>());</code></pre></div>
+<p>Restrict the kinds of links:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">linkify</span>::{<span class="ident">LinkFinder</span>, <span class="ident">LinkKind</span>};
+
+<span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;http://example.com and foo@example.com&quot;</span>;
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">finder</span> <span class="op">=</span> <span class="ident">LinkFinder::new</span>();
+<span class="ident">finder</span>.<span class="ident">kinds</span>(<span class="kw-2">&amp;</span>[<span class="ident">LinkKind::Email</span>]);
+<span class="kw">let</span> <span class="ident">links</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">finder</span>.<span class="ident">links</span>(<span class="ident">input</span>).<span class="ident">collect</span>();
+
+<span class="macro">assert_eq!</span>(<span class="number">1</span>, <span class="ident">links</span>.<span class="ident">len</span>());
+<span class="kw">let</span> <span class="ident">link</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">links</span>[<span class="number">0</span>];
+<span class="macro">assert_eq!</span>(<span class="string">&quot;foo@example.com&quot;</span>, <span class="ident">link</span>.<span class="ident">as_str</span>());
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="ident">LinkKind::Email</span>, <span class="ident">link</span>.<span class="ident">kind</span>());</code></pre></div>
+<p>Split the text into consecutive spans (mixed links and plain text).</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">linkify</span>::{<span class="ident">LinkFinder</span>, <span class="ident">LinkKind</span>};
+
+<span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="string">&quot;Have you seen http://example.com?&quot;</span>;
+<span class="kw">let</span> <span class="ident">finder</span> <span class="op">=</span> <span class="ident">LinkFinder::new</span>();
+<span class="kw">let</span> <span class="ident">spans</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">finder</span>.<span class="ident">spans</span>(<span class="ident">input</span>).<span class="ident">collect</span>();
+
+<span class="macro">assert_eq!</span>(<span class="number">3</span>, <span class="ident">spans</span>.<span class="ident">len</span>());
+
+<span class="macro">assert_eq!</span>(<span class="string">&quot;Have you seen &quot;</span>, <span class="ident">spans</span>[<span class="number">0</span>].<span class="ident">as_str</span>());
+<span class="macro">assert_eq!</span>(<span class="number">0</span>, <span class="ident">spans</span>[<span class="number">0</span>].<span class="ident">start</span>());
+<span class="macro">assert_eq!</span>(<span class="number">14</span>, <span class="ident">spans</span>[<span class="number">0</span>].<span class="ident">end</span>());
+<span class="macro">assert_eq!</span>(<span class="prelude-val">None</span>, <span class="ident">spans</span>[<span class="number">0</span>].<span class="ident">kind</span>());
+
+<span class="macro">assert_eq!</span>(<span class="string">&quot;http://example.com&quot;</span>, <span class="ident">spans</span>[<span class="number">1</span>].<span class="ident">as_str</span>());
+<span class="macro">assert_eq!</span>(<span class="number">14</span>, <span class="ident">spans</span>[<span class="number">1</span>].<span class="ident">start</span>());
+<span class="macro">assert_eq!</span>(<span class="number">32</span>, <span class="ident">spans</span>[<span class="number">1</span>].<span class="ident">end</span>());
+<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">LinkKind::Url</span>), <span class="ident">spans</span>[<span class="number">1</span>].<span class="ident">kind</span>());
+
+<span class="macro">assert_eq!</span>(<span class="string">&quot;?&quot;</span>, <span class="ident">spans</span>[<span class="number">2</span>].<span class="ident">as_str</span>());
+<span class="macro">assert_eq!</span>(<span class="number">32</span>, <span class="ident">spans</span>[<span class="number">2</span>].<span class="ident">start</span>());
+<span class="macro">assert_eq!</span>(<span class="number">33</span>, <span class="ident">spans</span>[<span class="number">2</span>].<span class="ident">end</span>());
+<span class="macro">assert_eq!</span>(<span class="prelude-val">None</span>, <span class="ident">spans</span>[<span class="number">2</span>].<span class="ident">kind</span>());</code></pre></div>
+<h4 id="conformance" class="section-header"><a href="#conformance">Conformance</a></h4>
+<p>This crates makes an effort to respect the various standards, namely:</p>
+<ul>
+<li><a href="https://tools.ietf.org/search/rfc3986">RFC 3986</a> and <a href="https://tools.ietf.org/search/rfc3987">RFC 3987</a> for URLs</li>
+<li><a href="https://tools.ietf.org/search/rfc5321">RFC 5321</a> and <a href="https://tools.ietf.org/search/rfc6531">RFC 6531</a> for emails (except IP addresses and quoting)</li>
+</ul>
+<p>At the same time, it does not guarantee that the returned links are valid.
+If in doubt, it rather returns a link than skipping it.</p>
+<p>If you need to validate URLs, e.g. for checking TLDs, use another library on
+the returned links.</p>
+</div></details><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Link.html" title="linkify::Link struct">Link</a></div><div class="item-right docblock-short"><p>A link found in the input text.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.LinkFinder.html" title="linkify::LinkFinder struct">LinkFinder</a></div><div class="item-right docblock-short"><p>A configured link finder.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Links.html" title="linkify::Links struct">Links</a></div><div class="item-right docblock-short"><p>Iterator for finding links.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Span.html" title="linkify::Span struct">Span</a></div><div class="item-right docblock-short"><p>Span within the input text.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Spans.html" title="linkify::Spans struct">Spans</a></div><div class="item-right docblock-short"><p>Iterator over spans.</p>
+</div></div></div><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.LinkKind.html" title="linkify::LinkKind enum">LinkKind</a></div><div class="item-right docblock-short"><p>The type of link that was found.</p>
+</div></div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="linkify" data-search-index-js="../search-index.js" data-search-js="../search.js"></div>
+    <script src="../main.js"></script>
+</body></html>

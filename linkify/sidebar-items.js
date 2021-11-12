@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["LinkKind","The type of link that was found."]],"struct":[["Link","A link found in the input text."],["LinkFinder","A configured link finder."],["Links","Iterator for finding links."],["Span","Span within the input text."],["Spans","Iterator over spans."]]});

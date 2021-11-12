@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["scanners","A scanner is just a function that which can extract links from a body of text."],["validation","Code for validating the various types of [`Link`]."]],"struct":[["BasicContext","A basic [`Context`] implementation which uses all the defaults."],["Link","A link to some other resource."]]});
