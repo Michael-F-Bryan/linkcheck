@@ -439,6 +439,7 @@ impl Debug for Options {
                 "links_may_traverse_the_root_directory",
                 links_may_traverse_the_root_directory,
             )
+            .field( "follow_symlinks", follow_symlinks)
             .field("alternate_extensions", alternate_extensions)
             .finish()
     }
@@ -459,6 +460,7 @@ impl PartialEq for Options {
             && default_file == &other.default_file
             && links_may_traverse_the_root_directory
                 == &other.links_may_traverse_the_root_directory
+            && follow_symlinks == &other.follow_symlinks
             && alternate_extensions == &other.alternate_extensions
     }
 }
