@@ -631,6 +631,31 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
+    fn a_symlink_from_root_tree_outside_is_not_resolved() {
+        use std::os::unix::fs;
+
+        init_logging();
+        let temp = tempfile::tempdir().unwrap();
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let foo = temp.join("foo");
+        let bar = temp.join("bar");
+        touch(Options::DEFAULT_FILE, &[&temp, &foo]);
+        touch(Options::DEFAULT_FILE, &[&temp, &bar]);
+        fs::symlink("../bar/index.html",foo.join("link.html").as_path()).unwrap();
+        let options = Options::default()
+            .with_root_directory(&foo)
+            .unwrap()
+            .set_links_may_traverse_the_root_directory(false)
+            .set_follow_symlinks(false);
+        let link = Path::new("link.html");
+
+        let got = resolve_link(&foo, link, &options).unwrap();
+
+        assert_eq!(got, foo.join("link.html"));
+    }
+
+    #[test]
     fn markdown_files_can_be_used_as_html() {
         init_logging();
         let temp = tempfile::tempdir().unwrap();
