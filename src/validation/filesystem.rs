@@ -1,3 +1,4 @@
+use super::path::normalize_path;
 use crate::validation::{Context, Reason};
 use std::{
     collections::HashMap,
@@ -135,6 +136,7 @@ pub struct Options {
     root_directory: Option<PathBuf>,
     default_file: OsString,
     links_may_traverse_the_root_directory: bool,
+    follow_symlinks: bool,
     // Note: the key is normalised to lowercase to make sure extensions are
     // case insensitive
     alternate_extensions: HashMap<String, Vec<OsString>>,
@@ -165,6 +167,7 @@ impl Options {
             root_directory: None,
             default_file: OsString::from(Options::DEFAULT_FILE),
             links_may_traverse_the_root_directory: false,
+            follow_symlinks: true,
             alternate_extensions: Options::default_alternate_extensions()
                 .into_iter()
                 .map(|(key, values)| {
@@ -254,6 +257,17 @@ impl Options {
         }
     }
 
+    /// Set [`Options::follow_symlinks()`].
+    pub fn set_follow_symlinks(
+        self,
+        value: bool,
+    ) -> Self {
+        Options {
+            follow_symlinks: value,
+            ..self
+        }
+    }
+
     /// Set a function which will be executed after a link is resolved, allowing
     /// you to apply custom business logic.
     pub fn set_custom_validation<F>(self, custom_validation: F) -> Self
@@ -313,7 +327,12 @@ impl Options {
     ///
     /// This will fail if the item doesn't exist.
     fn canonicalize(&self, path: &Path) -> Result<PathBuf, Reason> {
-        let mut canonical = dunce::canonicalize(path)?;
+        let f = |p| match self.follow_symlinks {
+            true => dunce::canonicalize(p),
+            false => Ok(normalize_path(p)),
+        };
+        
+        let mut canonical = f(path)?;
 
         if canonical.is_dir() {
             log::trace!(
@@ -324,7 +343,9 @@ impl Options {
             canonical.push(&self.default_file);
             // we need to canonicalize again because the default file may be a
             // symlink, or not exist at all
-            canonical = dunce::canonicalize(canonical)?;
+            if self.follow_symlinks || !canonical.exists() {
+                canonical = dunce::canonicalize(canonical)?;
+            }
         }
 
         Ok(canonical)
@@ -406,6 +427,7 @@ impl Debug for Options {
             root_directory,
             default_file,
             links_may_traverse_the_root_directory,
+            follow_symlinks,
             alternate_extensions,
             custom_validation: _,
         } = self;
@@ -417,6 +439,7 @@ impl Debug for Options {
                 "links_may_traverse_the_root_directory",
                 links_may_traverse_the_root_directory,
             )
+            .field( "follow_symlinks", follow_symlinks)
             .field("alternate_extensions", alternate_extensions)
             .finish()
     }
@@ -428,6 +451,7 @@ impl PartialEq for Options {
             root_directory,
             default_file,
             links_may_traverse_the_root_directory,
+            follow_symlinks,
             alternate_extensions,
             custom_validation: _,
         } = self;
@@ -436,6 +460,7 @@ impl PartialEq for Options {
             && default_file == &other.default_file
             && links_may_traverse_the_root_directory
                 == &other.links_may_traverse_the_root_directory
+            && follow_symlinks == &other.follow_symlinks
             && alternate_extensions == &other.alternate_extensions
     }
 }
@@ -605,6 +630,31 @@ mod tests {
         let got = resolve_link(&foo, link, &options).unwrap();
 
         assert_eq!(got, bar.join("index.html"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_symlink_from_root_tree_outside_is_not_resolved() {
+        use std::os::unix::fs;
+
+        init_logging();
+        let temp = tempfile::tempdir().unwrap();
+        let temp = dunce::canonicalize(temp.path()).unwrap();
+        let foo = temp.join("foo");
+        let bar = temp.join("bar");
+        touch(Options::DEFAULT_FILE, &[&temp, &foo]);
+        touch(Options::DEFAULT_FILE, &[&temp, &bar]);
+        fs::symlink("../bar/index.html",foo.join("link.html").as_path()).unwrap();
+        let options = Options::default()
+            .with_root_directory(&foo)
+            .unwrap()
+            .set_links_may_traverse_the_root_directory(false)
+            .set_follow_symlinks(false);
+        let link = Path::new("link.html");
+
+        let got = resolve_link(&foo, link, &options).unwrap();
+
+        assert_eq!(got, foo.join("link.html"));
     }
 
     #[test]

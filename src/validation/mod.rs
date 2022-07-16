@@ -4,6 +4,7 @@ mod cache;
 mod context;
 mod filesystem;
 mod web;
+mod path;
 
 pub use cache::{Cache, CacheEntry};
 pub use context::{BasicContext, Context};
